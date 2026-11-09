@@ -1,0 +1,31 @@
+{
+  "platforms": ["facebook", "google_drive"],
+  "default_language": "vi",
+  "default_timezone": "Asia/Ho_Chi_Minh",
+  "default_publish_time": "09:00",
+  "workflow_mode": "semi_auto",
+  "caption": {
+    "max_length": 1800,
+    "max_hashtags": 5,
+    "emoji_policy": "limited",
+    "include_cta": true
+  },
+  "video": {
+    "aspect_ratio": "9:16",
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "subtitle_enabled": true,
+    "logo_enabled": true,
+    "music_enabled": true
+  },
+  "approval": {
+    "require_caption": true,
+    "require_media": true,
+    "require_manual_review": true
+  },
+  "output": {
+    "file_name_template": "{content_date}_{topic_id}_{slug}",
+    "upload_to_drive": true
+  }
+}
