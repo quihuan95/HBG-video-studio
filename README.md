@@ -142,11 +142,25 @@ mã hóa AES-256-GCM và lưu trong SQLite, không tạo file token JSON.
 
 ## Khởi động ứng dụng
 
+Từ thư mục gốc, chỉ cần một lệnh:
+
+```powershell
+npm run dev
+```
+
+Lệnh này khởi động Vite, Electron, FastAPI, worker và các service nội bộ
+cần cho app. Khi đóng Electron, backend do app khởi tạo cũng được dừng theo.
+
+Lần đầu sau khi clone, nếu dependency frontend chưa được cài:
+
+```powershell
+npm run install:dashboard
+```
+
 ### 1. Khởi chạy toàn bộ ứng dụng
 
 ```powershell
-cd dashboard
-npm run electron:dev
+npm run dev
 ```
 
 Electron sẽ tự thực hiện các bước sau:
@@ -164,18 +178,10 @@ Invoke-RestMethod http://127.0.0.1:8100/health
 Invoke-RestMethod http://127.0.0.1:8100/api/providers/status
 ```
 
-### 2. Chế độ phát triển
-
-Mở một cửa sổ PowerShell khác:
-
-```powershell
-npm run electron:dev
-```
-
 Lệnh này chạy Vite và Electron đồng thời. DevTools tự mở trong chế độ phát
 triển.
 
-### 3. Chạy từ bản đã build
+### 2. Chạy từ bản đã build
 
 ```powershell
 cd dashboard
@@ -187,7 +193,7 @@ npm run electron:start
 
 ```powershell
 cd dashboard
-npm run dev
+npm run web:dev
 ```
 
 Truy cập `http://127.0.0.1:5173`.

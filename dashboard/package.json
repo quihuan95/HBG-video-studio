@@ -6,8 +6,9 @@
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
-    "dev": "vite",
-    "electron:dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && node electron/launch.cjs --dev\"",
+    "dev": "npm run electron:dev",
+    "web:dev": "vite --host 127.0.0.1",
+    "electron:dev": "concurrently -k \"npm run web:dev\" \"wait-on http://127.0.0.1:5173 && node electron/launch.cjs --dev\"",
     "electron:start": "node electron/launch.cjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

@@ -1,0 +1,10 @@
+{
+  "name": "hbg-video-studio",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "npm --prefix dashboard run dev",
+    "build": "npm --prefix dashboard run build",
+    "install:dashboard": "npm --prefix dashboard install"
+  }
+}
