@@ -204,23 +204,21 @@ npm run web:dev
 
 Truy cập `http://127.0.0.1:5173`.
 
-## Content Profile, Rule và lịch nội dung
+## Production Profile, Video Rule và lịch sản xuất
 
-Vào **Content Profiles** để tạo profile, nhập Google Sheet ID/URL và
-Google Drive folder chứa Rule. Folder Rule có thể chứa `CONTENT_RULE.md`,
-`BRAND_FACTS.md`, `IMAGE_RULE.md` và `PUBLISH_CONFIG.json`. Tab `TOPICS`
-trong Sheet bắt buộc có các cột:
+Vào **Production Profiles** để tạo profile, nhập Google Spreadsheet
+ID/URL và Google Drive folder chứa Rule. Folder Rule có thể chứa
+`CONTENT_RULE.md`, `BRAND_FACTS.md`, `VIDEO_RULE.md` và
+`PRODUCTION_CONFIG.json`.
 
-```text
-topic_id | content_date | publish_time | topic_title
-```
+Mỗi tab trong Spreadsheet là một video: dòng 1 là tiêu đề, dòng 2 là
+brief, dòng 3 là header và dòng 4 trở đi là các scene/shot.
 
-Nhấn **Đồng bộ Rule + Sheet**, sau đó mở **Lịch nội dung**. Topic
-chưa có bài có thể tạo Post ngay trên lịch; Post sẽ thay Topic tại
-cùng slot `profile_id + topic_id`. Mỗi Post snapshot Rule version đã dùng.
+Nhấn **Đồng bộ Rule + Sheet**, sau đó mở **Lịch sản xuất**.
+Tab chưa có job có thể tạo Production Job ngay trên lịch. Mỗi job
+snapshot Rule version và toàn bộ scene tại thời điểm tạo.
 
-Phần publisher Meta/Facebook chưa tự gửi bài cho đến khi có Meta
-credentials; lịch hiện là lịch nội bộ và giữ đúng timezone Profile.
+Lịch hiện là lịch sản xuất nội bộ và giữ đúng timezone của Profile.
 
 ## Quy trình sản xuất video
 

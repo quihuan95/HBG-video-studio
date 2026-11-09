@@ -22,11 +22,11 @@ export default function ContentProfilesPage() {
     catch (e) { setError(String(e)) }
   }
   return <div className="flex flex-col gap-4">
-    <div><h1 className="m-0 text-lg font-semibold">Content Profiles</h1><p className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>Cấu hình thương hiệu, Rule Drive và TOPICS Sheet.</p></div>
+    <div><h1 className="m-0 text-lg font-semibold">Production Profiles</h1><p className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>Cấu hình thương hiệu, Video Rule và Spreadsheet kịch bản; mỗi tab là một video.</p></div>
     {error && <div className="text-xs" style={{ color: 'var(--red)' }}>{error}</div>}
     <Card className="py-4"><CardHeader><CardTitle className="text-xs">TẠO PROFILE</CardTitle></CardHeader><CardContent>
       <div className="grid grid-cols-2 gap-3">
-        {([['name','Tên Profile'],['sheet_id_topics','Sheet ID hoặc URL'],['folder_id_rules','Folder RULES ID hoặc URL'],['timezone','Timezone'],['default_time','Giờ mặc định'],['color','Màu lịch']] as const).map(([key,label]) =>
+        {([['name','Tên Profile'],['sheet_id_topics','Spreadsheet ID hoặc URL'],['folder_id_rules','Folder VIDEO_RULES ID hoặc URL'],['timezone','Timezone'],['default_time','Giờ mặc định'],['color','Màu lịch']] as const).map(([key,label]) =>
           <label key={key} className="text-[9px] flex flex-col gap-1" style={{ color: 'var(--muted)' }}>{label}<input type={key === 'color' ? 'color' : 'text'} value={form[key]} onChange={e => setForm({...form,[key]:e.target.value})} className={inputClass} style={inputStyle}/></label>)}
         <label className="text-[9px] flex flex-col gap-1" style={{ color: 'var(--muted)' }}>WORKFLOW<select value={form.workflow_mode} onChange={e=>setForm({...form,workflow_mode:e.target.value})} className={inputClass} style={inputStyle}><option value="manual">manual</option><option value="semi_auto">semi_auto</option><option value="auto">auto</option></select></label>
       </div><Button className="mt-3" size="sm" disabled={!form.name.trim()} onClick={create}>Tạo Profile</Button>

@@ -15,7 +15,7 @@ const STEPS = [
   {
     icon: CalendarDays,
     title: '3. Tạo Content Profile',
-    body: 'Mở Content Profiles, nhập tên thương hiệu, timezone, giờ mặc định, folder RULES và Sheet TOPICS. Chọn workflow manual, semi_auto hoặc auto rồi đồng bộ Rule + Sheet.',
+    body: 'Mở Production Profiles, nhập thương hiệu, timezone, folder VIDEO_RULES và Spreadsheet kịch bản. Mỗi tab Sheet là một video.',
   },
   {
     icon: FileVideo,
@@ -25,7 +25,7 @@ const STEPS = [
   {
     icon: Clapperboard,
     title: '5. Tạo nội dung theo lịch',
-    body: 'Mở Lịch nội dung. Topic đồng bộ từ Sheet xuất hiện theo ngày/giờ; bấm Tạo bài để tạo Post và snapshot Rule. Post sẽ thay Topic trên cùng slot lịch.',
+    body: 'Mở Quản lý video. Mỗi tab Sheet xuất hiện trong nhóm Sẽ tạo; bấm Tạo video để tạo Production Job và snapshot Video Rule.',
   },
   {
     icon: CheckCircle2,

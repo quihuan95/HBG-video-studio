@@ -17,9 +17,9 @@ import ContentProfilesPage from './pages/ContentProfilesPage'
 import PostManagementPage from './pages/PostManagementPage'
 
 const NAV: { to: string; icon: typeof Files; labelKey?: TranslationKey; label?: string; exact: boolean }[] = [
-  { to: '/', icon: Files, label: 'Quản lý bài', exact: true },
-  { to: '/content-profiles', icon: Layers, label: 'Content Profiles', exact: false },
-  { to: '/calendar', icon: CalendarDays, label: 'Lịch nội dung', exact: false },
+  { to: '/', icon: Files, label: 'Quản lý video', exact: true },
+  { to: '/content-profiles', icon: Layers, label: 'Production Profiles', exact: false },
+  { to: '/calendar', icon: CalendarDays, label: 'Lịch sản xuất', exact: false },
   { to: '/logs', icon: ScrollText, labelKey: 'nav.logs', exact: false },
   { to: '/guide', icon: BookOpen, labelKey: 'nav.guide', exact: false },
   { to: '/settings', icon: SlidersHorizontal, labelKey: 'nav.settings', exact: false },
@@ -38,9 +38,9 @@ function useBreadcrumbs() {
   const { t } = useTranslation()
   const loc = useLocation()
   const crumbs: string[] = []
-  if (loc.pathname === '/') crumbs.push('Quản lý bài')
-  else if (loc.pathname.startsWith('/content-profiles')) crumbs.push('Content Profiles')
-  else if (loc.pathname.startsWith('/calendar')) crumbs.push('Lịch nội dung')
+  if (loc.pathname === '/') crumbs.push('Quản lý video')
+  else if (loc.pathname.startsWith('/content-profiles')) crumbs.push('Production Profiles')
+  else if (loc.pathname.startsWith('/calendar')) crumbs.push('Lịch sản xuất')
   else if (loc.pathname.startsWith('/logs')) crumbs.push(t('app.breadcrumb.logs'))
   else if (loc.pathname.startsWith('/guide')) crumbs.push(t('app.breadcrumb.guide'))
   else if (loc.pathname.startsWith('/settings')) crumbs.push(t('app.breadcrumb.settings'))

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 
 interface CalendarItem {
   id: string
-  kind: 'topic' | 'post'
+  kind: 'topic' | 'job'
   profile_id: string
   profile_name: string
   topic_id: string | null
@@ -23,7 +23,7 @@ export default function ContentCalendarPage() {
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    try { setItems(await fetchAPI<CalendarItem[]>('/api/calendar')); setError(null) }
+    try { setItems(await fetchAPI<CalendarItem[]>('/api/production-calendar')); setError(null) }
     catch (err) { setError(err instanceof Error ? err.message : String(err)) }
   }, [])
   useEffect(() => { void load() }, [load])
@@ -42,7 +42,7 @@ export default function ContentCalendarPage() {
   async function createFromTopic(item: CalendarItem) {
     setBusy(true)
     try {
-      await fetchAPI('/api/posts', { method: 'POST', body: JSON.stringify({ profile_id: item.profile_id, topic_id: item.topic_id }) })
+      await fetchAPI('/api/production-jobs', { method: 'POST', body: JSON.stringify({ profile_id: item.profile_id, video_topic_id: item.topic_id }) })
       await load()
     } catch (err) { setError(err instanceof Error ? err.message : String(err)) }
     finally { setBusy(false) }
@@ -52,8 +52,8 @@ export default function ContentCalendarPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
         <div>
-          <h1 className="m-0 text-lg font-semibold">Lịch nội dung</h1>
-          <p className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>Topic từ Sheet và Post đã tạo được hợp nhất theo ngày/giờ.</p>
+          <h1 className="m-0 text-lg font-semibold">Lịch sản xuất</h1>
+          <p className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>Video từ từng tab Sheet và Production Job được hợp nhất theo ngày/giờ.</p>
         </div>
         <Button className="ml-auto" size="sm" disabled={busy} onClick={syncAll}>
           <RefreshCw size={12} className={busy ? 'animate-spin' : undefined} /> Đồng bộ tất cả
@@ -61,7 +61,7 @@ export default function ContentCalendarPage() {
       </div>
       {error && <div className="text-xs" style={{ color: 'var(--red)' }}>{error}</div>}
       {groups.length === 0 ? (
-        <Card><CardContent className="py-8 text-center text-xs" style={{ color: 'var(--muted)' }}>Chưa có Topic hoặc Post trên lịch.</CardContent></Card>
+        <Card><CardContent className="py-8 text-center text-xs" style={{ color: 'var(--muted)' }}>Chưa có video hoặc Production Job trên lịch.</CardContent></Card>
       ) : groups.map(([day, dayItems]) => (
         <Card key={day} className="py-4">
           <CardHeader><CardTitle className="text-xs flex items-center gap-2"><CalendarDays size={13} />{day}</CardTitle></CardHeader>
@@ -71,10 +71,10 @@ export default function ContentCalendarPage() {
                 <span className="w-2 h-2 rounded-full" style={{ background: item.color }} />
                 <span className="text-[11px] w-12">{item.time}</span>
                 <div className="flex flex-col min-w-0">
-                  <span className="text-xs truncate">{item.topic_title || 'Bài không gắn Topic'}</span>
-                  <span className="text-[9px]" style={{ color: 'var(--muted)' }}>{item.profile_name} · {item.kind === 'topic' ? 'TOPIC CHƯA TẠO BÀI' : item.status}</span>
+                  <span className="text-xs truncate">{item.topic_title || 'Video không gắn tab nguồn'}</span>
+                  <span className="text-[9px]" style={{ color: 'var(--muted)' }}>{item.profile_name} · {item.kind === 'topic' ? 'VIDEO CHƯA TẠO JOB' : item.status}</span>
                 </div>
-                {item.kind === 'topic' && <Button className="ml-auto" size="xs" disabled={busy} onClick={() => createFromTopic(item)}>Tạo bài</Button>}
+                {item.kind === 'topic' && <Button className="ml-auto" size="xs" disabled={busy} onClick={() => createFromTopic(item)}>Tạo video</Button>}
               </div>
             ))}
           </CardContent>

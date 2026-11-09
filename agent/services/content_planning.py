@@ -65,13 +65,13 @@ async def sync_rules(profile: dict) -> dict | None:
             params={"q": query, "fields": "files(id,name,mimeType)"})
         listing.raise_for_status(); files = {f["name"]: f for f in listing.json().get("files", [])}
         parts = []
-        for name in ("CONTENT_RULE.md", "BRAND_FACTS.md", "IMAGE_RULE.md"):
+        for name in ("CONTENT_RULE.md", "BRAND_FACTS.md", "VIDEO_RULE.md"):
             if name in files:
                 response = await client.get(f"https://www.googleapis.com/drive/v3/files/{files[name]['id']}?alt=media", headers=headers)
                 response.raise_for_status(); parts.append(response.text)
         publish = {}
-        if "PUBLISH_CONFIG.json" in files:
-            response = await client.get(f"https://www.googleapis.com/drive/v3/files/{files['PUBLISH_CONFIG.json']['id']}?alt=media", headers=headers)
+        if "PRODUCTION_CONFIG.json" in files:
+            response = await client.get(f"https://www.googleapis.com/drive/v3/files/{files['PRODUCTION_CONFIG.json']['id']}?alt=media", headers=headers)
             try: publish = response.json() if response.is_success else {}
             except ValueError: publish = {}
     return await create_rule(profile["id"], "\n\n---\n\n".join(parts), publish) if parts else None

@@ -267,6 +267,78 @@ CREATE TABLE IF NOT EXISTS post_approvals (
 CREATE INDEX IF NOT EXISTS idx_topics_profile_date ON topics(profile_id, content_date);
 CREATE INDEX IF NOT EXISTS idx_posts_profile_date ON posts(profile_id, content_date, scheduled_time);
 
+CREATE TABLE IF NOT EXISTS video_topics (
+    id TEXT PRIMARY KEY,
+    profile_id TEXT NOT NULL REFERENCES production_profile(id) ON DELETE CASCADE,
+    spreadsheet_id TEXT NOT NULL,
+    source_sheet_id INTEGER NOT NULL,
+    source_tab_name TEXT NOT NULL,
+    title TEXT NOT NULL,
+    brief TEXT NOT NULL DEFAULT '',
+    orientation TEXT NOT NULL DEFAULT 'VERTICAL',
+    target_duration_s REAL,
+    production_date TEXT,
+    scheduled_time TEXT,
+    status TEXT NOT NULL DEFAULT 'READY' CHECK(status IN ('READY','ARCHIVED')),
+    source_revision INTEGER NOT NULL DEFAULT 1,
+    source_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(profile_id, spreadsheet_id, source_sheet_id)
+);
+CREATE TABLE IF NOT EXISTS video_topic_scenes (
+    id TEXT PRIMARY KEY,
+    video_topic_id TEXT NOT NULL REFERENCES video_topics(id) ON DELETE CASCADE,
+    scene_order INTEGER NOT NULL,
+    section TEXT,
+    shot_code TEXT,
+    start_time_s REAL NOT NULL,
+    end_time_s REAL NOT NULL,
+    duration_s REAL NOT NULL,
+    visual_intent TEXT,
+    on_screen_text TEXT,
+    narration_text TEXT,
+    editing_instruction TEXT,
+    footage_references TEXT,
+    audio_instruction TEXT,
+    notes TEXT,
+    UNIQUE(video_topic_id, scene_order)
+);
+CREATE TABLE IF NOT EXISTS production_jobs (
+    id TEXT PRIMARY KEY,
+    profile_id TEXT NOT NULL REFERENCES production_profile(id) ON DELETE CASCADE,
+    video_topic_id TEXT REFERENCES video_topics(id) ON DELETE SET NULL,
+    title TEXT NOT NULL,
+    production_date TEXT,
+    scheduled_time TEXT,
+    status TEXT NOT NULL DEFAULT 'DRAFT',
+    creation_source TEXT NOT NULL DEFAULT 'manual',
+    current_revision_id TEXT,
+    output_drive_file_id TEXT,
+    output_url TEXT,
+    error_stage TEXT,
+    error_message TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(profile_id, video_topic_id)
+);
+CREATE TABLE IF NOT EXISTS production_revisions (
+    id TEXT PRIMARY KEY,
+    production_job_id TEXT NOT NULL REFERENCES production_jobs(id) ON DELETE CASCADE,
+    revision INTEGER NOT NULL,
+    snapshot_json TEXT NOT NULL,
+    scenes_json TEXT NOT NULL,
+    assets_json TEXT NOT NULL DEFAULT '{}',
+    blockers_json TEXT NOT NULL DEFAULT '[]',
+    rule_version_id TEXT REFERENCES rule_versions(id),
+    rule_hash TEXT,
+    revision_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE(production_job_id, revision)
+);
+CREATE INDEX IF NOT EXISTS idx_video_topics_profile_status ON video_topics(profile_id,status);
+CREATE INDEX IF NOT EXISTS idx_production_jobs_status_schedule ON production_jobs(status,production_date,scheduled_time);
+
 CREATE TABLE IF NOT EXISTS oauth_states (
     state        TEXT PRIMARY KEY,
     user_id      TEXT NOT NULL,
