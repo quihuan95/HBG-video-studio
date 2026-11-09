@@ -11,12 +11,12 @@ Production Profile
   ├─ thương hiệu, logo, giọng đọc, ngôn ngữ, timezone
   ├─ trỏ tới folder VIDEO_RULES trên Google Drive
   ├─ trỏ tới folder footage local/Drive
-  ├─ trỏ tới Google Sheet VIDEO_PLAN
+  ├─ trỏ tới Spreadsheet kịch bản (mỗi tab là một video)
   └─ trỏ tới folder Drive đầu ra
                 │
         ┌───────┴────────┐
         ▼                ▼
-  Đồng bộ Rule      Đồng bộ tab VIDEOS
+  Đồng bộ Rule      Đồng bộ từng tab video
   tạo Rule version  tạo/cập nhật Video Topic
         └───────┬────────┘
                 ▼
@@ -42,7 +42,7 @@ liên kết của Rule, Video Topic, footage và Production Job qua `profile_id`
 | `timezone` | Múi giờ của lịch sản xuất; mặc định `Asia/Ho_Chi_Minh` |
 | `default_time` | Giờ bắt đầu xử lý mặc định; mặc định `09:00` |
 | `folder_id_rules` | Folder Drive chứa bộ Video Rule |
-| `sheet_id_topics` | Sheet chứa tab `VIDEOS` hoặc `VIDEO_PLAN` |
+| `sheet_id_topics` | Spreadsheet kịch bản; mỗi tab là một video |
 | `footage_sources` | Các folder footage local hoặc Google Drive |
 | `output_drive_url` | Folder Drive nhận video đã export |
 | `workflow_mode` | `manual`, `semi_auto` hoặc `auto` |
@@ -84,39 +84,106 @@ Nội dung ba file Markdown được ghép theo thứ tự trên, phân cách b�
 
 ## 4. Kế hoạch video trên Google Sheet
 
-Hệ thống đọc tab `VIDEOS!A1:Z500`. Có thể hỗ trợ alias `VIDEO_PLAN` khi tab
-`VIDEOS` không tồn tại.
+Một Google Spreadsheet chứa nhiều video. **Mỗi tab (sheet) là một video độc
+lập**; không có tab tổng `VIDEOS` và không dùng mỗi dòng làm một video.
 
-### 4.1 Các cột bắt buộc
+Hệ thống đọc metadata của spreadsheet trước để lấy toàn bộ tab cùng `sheetId`.
+`sheetId` (giá trị `gid` trong URL) là khóa nguồn ổn định của video. Tên tab là
+tên hiển thị và có thể đổi mà không tạo video mới.
 
-| Cột | Định dạng | Ý nghĩa |
-|---|---|---|
-| `video_id` | Chuỗi duy nhất trong Profile | Khóa nghiệp vụ của video |
-| `production_date` | `YYYY-MM-DD` hoặc `DD/MM/YYYY` | Ngày video nằm trên lịch sản xuất |
-| `production_time` | `HH:mm` hoặc `HH:mm:ss` | Giờ dự kiến bắt đầu xử lý |
-| `title` | Chuỗi không rỗng | Tên video |
-| `script` | Văn bản hoặc link Google Docs/Sheet | Kịch bản nguồn |
+Ví dụ URL:
 
-### 4.2 Các cột tùy chọn
+```text
+https://docs.google.com/spreadsheets/d/<spreadsheet_id>/edit?gid=379799720
+```
 
-| Cột | Ý nghĩa |
+Khóa video nguồn:
+
+```text
+profile_id + spreadsheet_id + sheet_id
+```
+
+### 4.1 Cấu trúc cố định của mỗi tab
+
+| Vùng | Nội dung |
 |---|---|
-| `target_duration_s` | Thời lượng mục tiêu |
-| `orientation` | `VERTICAL` hoặc `HORIZONTAL` |
-| `footage_folder` | Folder footage riêng cho video |
-| `voice_id` | Ghi đè giọng đọc của Profile |
-| `music_drive_link` | Nhạc riêng cho video |
-| `notes` | Ghi chú sản xuất |
+| Dòng 1 | Tiêu đề video; có thể merge nhiều cột |
+| Dòng 2 | Brief tổng: format, mục tiêu, hook, giọng điệu, logo/hotline |
+| Dòng 3 | Header của bảng scene |
+| Dòng 4 trở đi | Mỗi dòng là một scene/shot theo thứ tự timeline |
+
+Các cột bắt buộc ở dòng 3:
+
+| Cột | Header | Ý nghĩa |
+|---|---|---|
+| A | `Phần` | Tên phân đoạn: Hook, nội dung, Compare, Montage, End... |
+| B | `Shot` | Mã shot; chấp nhận `OF`, `01`, `02`, `EF`... |
+| C | `Timecode` | Khoảng thời gian như `00:03–00:09` |
+| D | `Hình ảnh đề xuất` | Mô tả footage cần xuất hiện |
+| E | `Text on screen` | Chữ hiển thị trên video |
+| F | `Voice-over (VI) – lời đọc tiếng Việt` | Nội dung dùng để tạo voice |
+| G | `Cách dựng` | Nhịp cắt, transition, bố cục và chỉ dẫn dựng |
+| H | `Tư liệu tham khảo` | Keyword hoặc link dùng để match footage |
+| I | `Âm thanh` | Chỉ dẫn nhạc, beat, ambience và sound effect |
+| J | `Ghi chú` | Logo, hotline và yêu cầu bổ sung |
+
+Header được normalize khoảng trắng, chữ hoa/thường và một số tên viết tắt,
+nhưng không suy đoán khi thiếu một cột bắt buộc.
+
+### 4.2 Chuẩn hóa một tab thành Video Topic
+
+Metadata video lấy từ tab:
+
+```text
+source_sheet_id = sheetId/gid
+source_tab_name = tên tab
+title           = nội dung dòng 1, fallback sang tên tab
+brief           = nội dung dòng 2
+orientation     = suy ra từ brief (ví dụ "Format 9:16"), fallback Profile
+target_duration = end timecode lớn nhất
+script_hash     = hash của title + brief + toàn bộ scene đã normalize
+```
+
+Mỗi dòng scene được chuẩn hóa thành:
+
+```text
+scene_order
+section
+shot_code
+start_time_s
+end_time_s
+duration_s
+visual_intent
+on_screen_text
+narration_text
+editing_instruction
+footage_references
+audio_instruction
+notes
+```
+
+Timecode chấp nhận dấu `-`, `–` hoặc `—`. Các khoảng phải hợp lệ, không âm và
+không chồng lấn sai thứ tự. Dòng hoàn toàn trống được bỏ qua.
 
 ### 4.3 Quy tắc đồng bộ
 
-- Dòng trống được bỏ qua.
-- Thiếu header bắt buộc, ngày/giờ sai hoặc trùng `video_id` làm sync thất bại.
-- Dòng mới tạo Video Topic trạng thái `READY`, `source_revision = 1`.
-- Dòng thay đổi tăng `source_revision` và cập nhật `source_hash`.
-- Dòng bị xóa sẽ xóa Video Topic. Production Job liên kết được chuyển
-  `ARCHIVED` nếu cấu hình giữ lại; nếu không thì xóa khi chưa render.
-- Luôn nhận diện một slot bằng `profile_id + video_id`, không dùng số dòng.
+- Tab mới tạo Video Topic `READY`, `source_revision = 1`.
+- Tab đổi tên nhưng giữ cùng `sheetId`: cập nhật Topic hiện có.
+- Nội dung title, brief hoặc scene thay đổi: tăng `source_revision` và cập nhật
+  `source_hash`.
+- Nội dung không đổi: không tạo revision mới.
+- Tab ẩn được đồng bộ thành `ARCHIVED` và không được automation chọn; khi hiện
+  lại, Topic quay về `READY`.
+- Tab bị xóa: Topic bị xóa; Production Job đã tồn tại được giữ `ARCHIVED` để
+  bảo toàn lịch sử và asset render.
+- Thứ tự tab không phải khóa và không ảnh hưởng nhận diện video.
+- Sync một URL có `gid` có thể ưu tiên tab đó trên UI, nhưng sync Profile vẫn
+  đọc toàn bộ tab trong spreadsheet.
+
+Lịch sản xuất không lấy từ từng tab vì mẫu sheet không chứa ngày/giờ. Topic mới
+được đưa vào nhóm **Sẽ tạo / Chưa xếp lịch**. Người dùng đặt
+`production_date` và `scheduled_time` trong ứng dụng; automation chỉ chạy sau
+khi hai giá trị này đã được chốt.
 
 ## 5. Tạo Production Job
 
@@ -131,8 +198,8 @@ Trước khi tạo Job, Profile phải có Rule published và kịch bản khôn
 ### 5.1 Chốt lịch
 
 ```text
-production_date = override.date || topic.production_date || ngày hiện tại theo profile.timezone
-scheduled_time  = override.time || topic.production_time || profile.default_time || "09:00"
+production_date = override.date || topic.production_date || ngày người dùng chọn
+scheduled_time  = override.time || topic.scheduled_time || profile.default_time || "09:00"
 ```
 
 Đây là lịch bắt đầu sản xuất video.
@@ -147,7 +214,7 @@ Hệ thống tạo:
 - Snapshot `rule_version_id` và `rule_hash`.
 - Blocker ban đầu: kịch bản rỗng, chưa có voice, timeline, footage hoặc render.
 
-Nếu đã có Job cho `profile_id + video_id`, hệ thống trả Job hiện có và không
+Nếu đã có Job cho `profile_id + spreadsheet_id + source_sheet_id`, hệ thống trả Job hiện có và không
 tạo trùng.
 
 ## 6. Pipeline sản xuất video
@@ -232,7 +299,7 @@ Topic bị xóa nhưng giữ lịch sử → ARCHIVED.
 
 Lịch tổng hợp từ Video Topic và Production Job:
 
-1. Topic chưa có Job: hiển thị theo `production_date/production_time`, cho phép
+1. Topic chưa có Job: hiển thị theo `production_date/scheduled_time`, cho phép
    bấm để tạo video.
 2. Topic đã có Job: chỉ hiển thị Job; không hiển thị Topic lần thứ hai.
 3. Job nhập trực tiếp không gắn Topic vẫn hiển thị độc lập.
@@ -255,7 +322,7 @@ Scheduler xét từng Profile theo `profile.timezone` và chỉ chạy khi:
 - Workflow là `semi_auto` hoặc `auto`.
 - Topic có kịch bản và lịch hợp lệ.
 - Đã đến `production_date + production_time`.
-- Chưa có Job cho `profile_id + video_id`.
+- Chưa có Job cho `profile_id + spreadsheet_id + source_sheet_id`.
 
 Job manual không bị automation ghi đè. Retry phải tiếp tục từ stage lỗi gần
 nhất thay vì tạo lại voice, footage hoặc render đã thành công.
@@ -280,7 +347,8 @@ nhất thay vì tạo lại voice, footage hoặc render đã thành công.
 
 ## 11. Nguyên tắc bắt buộc
 
-- Luôn dùng `profile_id + video_id` để nhận diện một video theo kế hoạch.
+- Luôn dùng `profile_id + spreadsheet_id + source_sheet_id` để nhận diện
+  video nguồn; không dùng tên hay vị trí tab làm khóa.
 - Không hiển thị đồng thời Topic và Job của cùng slot trên lịch.
 - Không sửa trực tiếp revision cũ; mỗi lần thay kịch bản/timeline/asset tạo
   revision mới.
