@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { BrowserRouter, HashRouter, NavLink, Routes, Route, useLocation, useParams, useSearchParams } from 'react-router-dom'
-import { LayoutDashboard, FolderOpen, Film, ScrollText, BookOpen, SlidersHorizontal, Globe, CalendarDays, Layers } from 'lucide-react'
+import { BrowserRouter, HashRouter, NavLink, Routes, Route, useLocation } from 'react-router-dom'
+import { Files, ScrollText, BookOpen, SlidersHorizontal, Globe, CalendarDays, Layers } from 'lucide-react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { WebSocketProvider } from './api/WebSocketContext'
 import { useWebSocketContext } from './api/useWebSocketContext'
@@ -9,33 +9,21 @@ import { useTranslation } from './i18n/useTranslation'
 import { LANGS, LANG_LABELS, type Lang } from './i18n/translations'
 import type { TranslationKey } from './i18n/translations'
 import { fetchAPI } from './api/client'
-import type { Project } from './types'
-import DashboardPage from './pages/DashboardPage'
-import ProjectsPage from './pages/ProjectsPage'
 import LogsPage from './pages/LogsPage'
-import GalleryPage from './pages/GalleryPage'
 import GuidePage from './pages/GuidePage'
 import SettingsPage from './pages/SettingsPage'
 import ContentCalendarPage from './pages/ContentCalendarPage'
 import ContentProfilesPage from './pages/ContentProfilesPage'
+import PostManagementPage from './pages/PostManagementPage'
 
-const NAV: { to: string; icon: typeof LayoutDashboard; labelKey?: TranslationKey; label?: string; exact: boolean }[] = [
-  { to: '/', icon: LayoutDashboard, labelKey: 'nav.dashboard', exact: true },
-  { to: '/projects', icon: FolderOpen, labelKey: 'nav.projects', exact: false },
+const NAV: { to: string; icon: typeof Files; labelKey?: TranslationKey; label?: string; exact: boolean }[] = [
+  { to: '/', icon: Files, label: 'Quản lý bài', exact: true },
   { to: '/content-profiles', icon: Layers, label: 'Content Profiles', exact: false },
-  { to: '/gallery', icon: Film, labelKey: 'nav.gallery', exact: false },
   { to: '/calendar', icon: CalendarDays, label: 'Lịch nội dung', exact: false },
   { to: '/logs', icon: ScrollText, labelKey: 'nav.logs', exact: false },
   { to: '/guide', icon: BookOpen, labelKey: 'nav.guide', exact: false },
   { to: '/settings', icon: SlidersHorizontal, labelKey: 'nav.settings', exact: false },
 ]
-
-const BREADCRUMB_TAB_KEY: Record<string, TranslationKey> = {
-  overview: 'app.breadcrumbTab.overview',
-  characters: 'app.breadcrumbTab.characters',
-  videos: 'app.breadcrumbTab.videos',
-  pipeline: 'app.breadcrumbTab.pipeline',
-}
 
 function useClock() {
   const [now, setNow] = useState(() => new Date())
@@ -49,26 +37,10 @@ function useClock() {
 function useBreadcrumbs() {
   const { t } = useTranslation()
   const loc = useLocation()
-  const { id } = useParams<{ id?: string }>()
-  const [searchParams] = useSearchParams()
-  const [projectName, setProjectName] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!id) return
-    fetchAPI<Project>(`/api/projects/${id}`).then(p => setProjectName(p.name)).catch(() => setProjectName(null))
-  }, [id])
-
   const crumbs: string[] = []
-  if (loc.pathname === '/') crumbs.push(t('app.breadcrumb.dashboard'))
-  else if (loc.pathname.startsWith('/projects')) {
-    crumbs.push(t('app.breadcrumb.projects'))
-    if (id) {
-      crumbs.push(projectName ?? '…')
-      const tab = searchParams.get('tab')
-      const tabKey = tab ? BREADCRUMB_TAB_KEY[tab] : undefined
-      if (tabKey) crumbs.push(t(tabKey))
-    }
-  } else if (loc.pathname.startsWith('/gallery')) crumbs.push(t('app.breadcrumb.gallery'))
+  if (loc.pathname === '/') crumbs.push('Quản lý bài')
+  else if (loc.pathname.startsWith('/content-profiles')) crumbs.push('Content Profiles')
+  else if (loc.pathname.startsWith('/calendar')) crumbs.push('Lịch nội dung')
   else if (loc.pathname.startsWith('/logs')) crumbs.push(t('app.breadcrumb.logs'))
   else if (loc.pathname.startsWith('/guide')) crumbs.push(t('app.breadcrumb.guide'))
   else if (loc.pathname.startsWith('/settings')) crumbs.push(t('app.breadcrumb.settings'))
@@ -211,11 +183,8 @@ function Layout() {
         <Header />
         <main className="flex-1 overflow-auto p-5">
           <Routes>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/projects" element={<ProjectsPage />} />
-            <Route path="/projects/:id" element={<ProjectsPage />} />
+            <Route path="/" element={<PostManagementPage />} />
             <Route path="/content-profiles" element={<ContentProfilesPage />} />
-            <Route path="/gallery" element={<GalleryPage />} />
             <Route path="/calendar" element={<ContentCalendarPage />} />
             <Route path="/logs" element={<LogsPage />} />
             <Route path="/guide" element={<GuidePage />} />
