@@ -165,7 +165,11 @@ async def _insert_scenes(db, topic_id: str, scenes: list[dict]):
 
 async def list_video_topics(include_archived=False):
     where = "" if include_archived else " WHERE vt.status='READY'"
-    return await _rows("SELECT vt.*,p.name profile_name,p.color FROM video_topics vt JOIN production_profile p ON p.id=vt.profile_id" + where + " ORDER BY vt.created_at")
+    topics = await _rows("SELECT vt.*,p.name profile_name,p.color FROM video_topics vt JOIN production_profile p ON p.id=vt.profile_id" + where + " ORDER BY vt.created_at")
+    for topic in topics:
+        try: topic["footage_result"] = json.loads(topic.get("footage_result_json") or "{}")
+        except ValueError: topic["footage_result"] = {}
+    return topics
 
 
 async def create_production_job(profile: dict, video_topic_id: str, production_date=None, scheduled_time=None):

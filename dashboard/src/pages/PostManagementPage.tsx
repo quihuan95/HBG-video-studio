@@ -19,6 +19,7 @@ interface ContentItem {
   output_url?: string | null
   footage_folder_url?: string | null
   footage_status?: string | null
+  footage_result?: { classified_folder_url?: string } | null
 }
 
 interface ClassificationRun {
@@ -29,6 +30,7 @@ interface ClassificationRun {
   current: number
   total: number
   logs: { time: string; stage: string; message: string }[]
+  result?: { organization?: { classified_folder_url?: string } }
 }
 
 const DONE = new Set(['MANUALLY_UPLOADED', 'COMPLETED', 'ARCHIVED'])
@@ -53,6 +55,7 @@ function ItemRow({ item, busy, run, onCreate, onExport, onClassify }: { item: Co
       <div className="h-1 rounded overflow-hidden" style={{ background: 'var(--border)' }}><div className="h-full transition-all" style={{ width: `${run.status === 'COMPLETED' ? 100 : percent}%`, background: run.status === 'FAILED' ? 'var(--red)' : 'var(--accent)' }}/></div>
       <details className="text-[9px]" open={run.status === 'FAILED'}><summary className="cursor-pointer" style={{ color: 'var(--muted)' }}>Nhật ký phân loại ({run.logs.length})</summary><div className="mt-1 max-h-32 overflow-auto rounded p-2 flex flex-col gap-1" style={{ background: 'var(--bg)' }}>{run.logs.map((log, index) => <div key={`${log.time}-${index}`}><span style={{ color: 'var(--muted)' }}>{new Date(log.time).toLocaleTimeString()} · {log.stage}</span> — {log.message}</div>)}</div></details>
     </div>}
+    {(run?.result?.organization?.classified_folder_url || item.footage_result?.classified_folder_url) && <a className="ml-5 text-[10px] flex items-center gap-1 w-fit" style={{ color: 'var(--accent)' }} href={run?.result?.organization?.classified_folder_url || item.footage_result?.classified_folder_url} target="_blank" rel="noreferrer"><ExternalLink size={11}/> Mở kết quả phân loại trên Drive</a>}
   </div>
 }
 

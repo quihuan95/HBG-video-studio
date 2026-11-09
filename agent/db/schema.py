@@ -278,6 +278,7 @@ CREATE TABLE IF NOT EXISTS video_topics (
     footage_folder_id TEXT,
     footage_status TEXT NOT NULL DEFAULT 'PENDING',
     footage_error TEXT,
+    footage_result_json TEXT NOT NULL DEFAULT '{}',
     title TEXT NOT NULL,
     brief TEXT NOT NULL DEFAULT '',
     orientation TEXT NOT NULL DEFAULT 'VERTICAL',
@@ -601,6 +602,7 @@ CREATE INDEX IF NOT EXISTS idx_request_scene ON request(scene_id);
         video_topic_additions = {
             "footage_folder_url": "TEXT", "footage_folder_id": "TEXT",
             "footage_status": "TEXT NOT NULL DEFAULT 'PENDING'", "footage_error": "TEXT",
+            "footage_result_json": "TEXT NOT NULL DEFAULT '{}'",
         }
         for name, definition in video_topic_additions.items():
             if name not in video_topic_columns:
