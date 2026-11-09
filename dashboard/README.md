@@ -9,7 +9,7 @@ events.
 
 - Node.js 20 or newer
 - npm
-- The Flow Kit Python agent running at `http://127.0.0.1:8100`
+- A project `.venv` with the Python requirements installed
 
 Install dependencies once:
 
@@ -19,21 +19,17 @@ npm install
 
 ## Electron development
 
-Start the Python backend from the repository root:
-
-```bash
-python -m agent.main
-```
-
-In another terminal, start Vite and Electron together:
+Start Vite, Electron, and the Python backend together:
 
 ```bash
 cd dashboard
 npm run electron:dev
 ```
 
-Electron DevTools open automatically in development mode. Vite proxies `/api`,
-`/health`, and `/ws` to the Python backend.
+Electron starts the Python backend when it is not already running, waits for its
+health check, and stops the owned backend when the app closes. DevTools open
+automatically in development mode. Vite proxies `/api`, `/health`, and `/ws` to
+the backend.
 
 ## Run the compiled desktop UI
 
@@ -67,9 +63,8 @@ remote debugging.
 
 ## Current desktop scope
 
-Electron currently wraps the dashboard UI only. The Python backend and Chrome
-extension remain separate processes. Automatic backend startup, packaged
-Python/FFmpeg binaries, persistent desktop settings, and a Windows installer
-are planned follow-up work.
+Electron currently manages the local Python backend as a child process. The
+Chrome extension remains a separate component. Packaged Python/FFmpeg binaries,
+persistent desktop settings, and a Windows installer are planned follow-up work.
 
 Repository: <https://github.com/quihuan95/HBG-video-studio>

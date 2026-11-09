@@ -17,12 +17,14 @@ Giai đoạn đầu của bản desktop đã hoàn thành:
 - Dashboard React chạy trong cửa sổ Electron.
 - Chế độ phát triển có hot reload qua Vite.
 - Bản React đã build có thể chạy trực tiếp bằng Electron.
+- Electron tự khởi động và dừng FastAPI backend cùng vòng đời ứng dụng.
 - Dashboard kết nối FastAPI tại `http://127.0.0.1:8100`.
 - WebSocket nhận trạng thái pipeline tại `/ws/dashboard`.
 - Dashboard trên trình duyệt vẫn được giữ để phát triển và debug.
 
-Ở giai đoạn hiện tại, Electron chưa tự khởi động hoặc đóng gói backend Python.
-Backend và Chrome Extension vẫn cần được chạy/cài riêng.
+Ở giai đoạn hiện tại, Python runtime chưa được đóng gói vào bộ cài. Máy cần có
+`.venv` và dependencies Python sau bước cài đặt ban đầu. Chrome Extension vẫn
+cần được cài riêng.
 
 ## Kiến trúc
 
@@ -132,14 +134,22 @@ Các cấu hình nâng cao nằm trong [`agent/config.py`](agent/config.py).
 
 ## Khởi động ứng dụng
 
-### 1. Chạy backend
+### 1. Khởi chạy toàn bộ ứng dụng
 
 ```powershell
-./.venv/Scripts/Activate.ps1
-python -m agent.main
+cd dashboard
+npm run electron:dev
 ```
 
-Kiểm tra trạng thái:
+Electron sẽ tự thực hiện các bước sau:
+
+1. Kiểm tra backend tại `http://127.0.0.1:8100/health`.
+2. Dùng backend đang chạy nếu đã có.
+3. Nếu chưa có, chạy `.venv/Scripts/python.exe -m agent.main`.
+4. Chờ backend sẵn sàng rồi mới mở dashboard.
+5. Dừng backend do Electron tạo khi ứng dụng đóng.
+
+Kiểm tra trạng thái nếu cần:
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8100/health
@@ -150,20 +160,18 @@ Invoke-RestMethod http://127.0.0.1:8100/api/providers/status
 `extension_connected` phải là `true` khi sử dụng Google Flow. Giá trị
 `flow_key_present: false` là bình thường với transport hiện tại.
 
-### 2. Chạy Electron ở chế độ phát triển
+### 2. Chế độ phát triển
 
 Mở một cửa sổ PowerShell khác:
 
 ```powershell
-cd dashboard
-npm install
 npm run electron:dev
 ```
 
 Lệnh này chạy Vite và Electron đồng thời. DevTools tự mở trong chế độ phát
 triển.
 
-### 3. Chạy Electron từ bản đã build
+### 3. Chạy từ bản đã build
 
 ```powershell
 cd dashboard
@@ -253,7 +261,7 @@ không có cơ chế đăng nhập và chỉ nên bind vào `127.0.0.1`.
 - [x] Chạy React dashboard trong Electron
 - [x] Hỗ trợ dev mode và compiled renderer
 - [x] Kết nối FastAPI và WebSocket local
-- [ ] Electron tự khởi động/dừng Python backend
+- [x] Electron tự khởi động/dừng Python backend
 - [ ] Lưu cấu hình qua giao diện desktop
 - [ ] Đóng gói Python runtime và FFmpeg
 - [ ] Tạo bộ cài Windows `.exe`

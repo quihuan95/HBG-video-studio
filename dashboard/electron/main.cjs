@@ -1,7 +1,8 @@
-const { app, BrowserWindow, shell } = require('electron')
+const { app, BrowserWindow, dialog, shell } = require('electron')
 const fs = require('node:fs')
 const http = require('node:http')
 const path = require('node:path')
+const { ensureBackend, stopBackend } = require('./backend.cjs')
 
 const MIME_TYPES = {
   '.css': 'text/css',
@@ -41,7 +42,7 @@ async function createWindow(rendererUrl) {
     height: 900,
     minWidth: 1024,
     minHeight: 700,
-    title: 'Flow Kit',
+    title: 'HBG Video Studio',
     backgroundColor: '#0a0a0a',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -67,12 +68,20 @@ async function createWindow(rendererUrl) {
 }
 
 app.whenReady().then(async () => {
-  const renderer = process.argv.includes('--dev') ? null : await startRendererServer()
-  await createWindow(renderer?.url)
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) void createWindow(renderer?.url)
-  })
+  try {
+    await ensureBackend()
+    const renderer = process.argv.includes('--dev') ? null : await startRendererServer()
+    await createWindow(renderer?.url)
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) void createWindow(renderer?.url)
+    })
+  } catch (error) {
+    dialog.showErrorBox('Không thể khởi động HBG Video Studio', error.message)
+    app.quit()
+  }
 })
+
+app.on('before-quit', stopBackend)
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()

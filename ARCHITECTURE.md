@@ -32,7 +32,8 @@ Electron shell hosts the React operations dashboard as a desktop application.
 - Uses the FastAPI REST API at `127.0.0.1:8100`
 - Receives live pipeline events from `/ws/dashboard`
 - Runs through Vite during development and from `dashboard/dist/` after build
-- Does not start or package the Python backend yet
+- Starts the local Python backend when needed and stops the owned process on exit
+- Does not package the Python runtime or FFmpeg yet
 
 ## Stack
 - Extension: Chrome Manifest V3, vanilla JS
