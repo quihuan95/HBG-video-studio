@@ -12,7 +12,9 @@ from agent.services.video_planning import (
 from agent.services.drive_output_export import (
     DriveExportError, approve_production_job, export_production_job,
 )
-from agent.services.video_footage_pipeline import classify_video_footage
+from agent.services.video_footage_pipeline import (
+    classification_status, classify_video_footage, start_video_footage_classification,
+)
 
 router = APIRouter(tags=["content-calendar"])
 
@@ -104,11 +106,16 @@ async def get_video_topics(all: bool = False):
 @router.post("/video-topics/{video_topic_id}/classify-footage")
 async def classify_topic_footage(video_topic_id: str):
     try:
-        return await classify_video_footage(video_topic_id)
+        return await start_video_footage_classification(video_topic_id)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     except Exception as exc:
         raise HTTPException(502, f"Footage classification failed: {exc}") from exc
+
+
+@router.get("/video-topics/{video_topic_id}/classification-status")
+async def get_topic_classification_status(video_topic_id: str):
+    return classification_status(video_topic_id)
 
 
 @router.post("/posts", status_code=201)
