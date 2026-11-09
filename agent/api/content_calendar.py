@@ -113,9 +113,9 @@ async def get_video_topics(all: bool = False):
 
 
 @router.post("/video-topics/{video_topic_id}/classify-footage")
-async def classify_topic_footage(video_topic_id: str):
+async def classify_topic_footage(video_topic_id: str, force: bool = False):
     try:
-        return await start_video_footage_classification(video_topic_id)
+        return await start_video_footage_classification(video_topic_id, force=force)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     except Exception as exc:

@@ -26,7 +26,9 @@ async def test_per_video_footage_is_scanned_analyzed_and_organized(monkeypatch, 
             profile["id"], source["id"], "clip.mp4", "gdrive://clip-id",
             external_id="clip-id", mime_type="video/mp4")]
 
+    analyzed_ids = []
     async def fake_analyze(asset_id, selected_profile):
+        analyzed_ids.append(asset_id)
         return await crud.update_footage_asset(asset_id, status="READY", category="City / Street")
 
     organized = {}
@@ -46,6 +48,13 @@ async def test_per_video_footage_is_scanned_analyzed_and_organized(monkeypatch, 
     assert organized["root"] == "folder_12345678901234567890"
     source = (await crud.list_footage_sources(profile["id"]))[0]
     assert source["video_topic_id"] == topic_id
+    assert len(analyzed_ids) == 1
+
+    # A normal create flow reuses READY analysis; only an explicit force reruns OpenAI.
+    await classify_video_footage(topic_id)
+    assert len(analyzed_ids) == 1
+    await classify_video_footage(topic_id, force=True)
+    assert len(analyzed_ids) == 2
 
 
 @pytest.mark.asyncio

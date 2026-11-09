@@ -136,11 +136,12 @@ def _organize_files_sync(root_folder_id: str, items: list[dict], access_token: s
             "catalog_file_id": catalog_id, "report_file_id": report_id}
 
 
-async def classify_video_footage(video_topic_id: str) -> dict:
-    return await _classify_video_footage(video_topic_id)
+async def classify_video_footage(video_topic_id: str, force: bool = False) -> dict:
+    return await _classify_video_footage(video_topic_id, force=force)
 
 
-async def _classify_video_footage(video_topic_id: str, progress: ProgressCallback | None = None) -> dict:
+async def _classify_video_footage(video_topic_id: str, progress: ProgressCallback | None = None,
+                                  force: bool = False) -> dict:
     async def emit(stage: str, message: str, current: int = 0, total: int = 0):
         if progress:
             await progress(stage, message, current, total)
@@ -171,7 +172,7 @@ async def _classify_video_footage(video_topic_id: str, progress: ProgressCallbac
         for index, asset in enumerate(assets, start=1):
             try:
                 await emit("ANALYZING", f"Đang phân tích {asset['file_name']}", index - 1, len(assets))
-                result = asset if asset["status"] == "READY" else await analyze_footage(asset["id"], profile)
+                result = asset if asset["status"] == "READY" and not force else await analyze_footage(asset["id"], profile)
                 analyzed.append(result)
                 await emit("ANALYZING", f"Đã phân loại {asset['file_name']} → {_category_folder(result.get('category'))}", index, len(assets))
             except Exception as exc:
@@ -208,7 +209,7 @@ def classification_status(video_topic_id: str) -> dict:
     })
 
 
-async def start_video_footage_classification(video_topic_id: str) -> dict:
+async def start_video_footage_classification(video_topic_id: str, force: bool = False) -> dict:
     task = _classification_tasks.get(video_topic_id)
     if task and not task.done():
         return classification_status(video_topic_id)
@@ -227,7 +228,7 @@ async def start_video_footage_classification(video_topic_id: str) -> dict:
 
     async def run():
         try:
-            result = await _classify_video_footage(video_topic_id, progress)
+            result = await _classify_video_footage(video_topic_id, progress, force=force)
             state.update({"status": "COMPLETED", "result": result, "updated_at": _now()})
         except Exception as exc:
             state.update({"status": "FAILED", "stage": "FAILED", "message": str(exc),

@@ -224,6 +224,9 @@ người vận hành). Giao diện hiện link mở thẳng folder kết quả s
 Production Job chỉ được tạo khi video có folder footage và quá trình phân loại
 đạt trạng thái `READY`; `PENDING`, `ANALYZING`, `PARTIAL` và `FAILED` đều bị
 chặn ở cả giao diện lẫn API.
+Sau khi đạt `READY`, nút **Phân tích lại** cho phép chủ động chạy lại OpenAI và
+cập nhật toàn bộ kết quả. Luồng **Tạo video** tái sử dụng kết quả `READY` hiện
+có, không phân tích footage lần nữa.
 
 Nhấn **Đồng bộ Rule + Sheet**, sau đó mở **Lịch sản xuất**.
 Tab chưa có job có thể tạo Production Job ngay trên lịch. Mỗi job
