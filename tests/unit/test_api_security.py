@@ -27,6 +27,14 @@ def test_cross_site_requests_are_refused(client, headers):
     assert client.get("/health", headers=headers).status_code == 403
 
 
+def test_google_oauth_callback_allows_cross_site_top_level_get_only(client):
+    headers = {"sec-fetch-site": "cross-site"}
+    # 422 means the request reached FastAPI and is only missing code/state.
+    assert client.get("/api/oauth/google/callback", headers=headers).status_code == 422
+    assert client.post("/api/oauth/google/callback", headers=headers).status_code == 403
+    assert client.get("/health", headers=headers).status_code == 403
+
+
 @pytest.mark.parametrize("headers", [
     {},
     {"origin": "http://localhost:5173"},

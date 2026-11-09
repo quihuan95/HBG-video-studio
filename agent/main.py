@@ -153,6 +153,15 @@ async def reject_cross_site(request: Request, call_next):
     if host and host.lower() not in _ALLOWED_HOSTS:
         logger.warning("Refused %s %s for host %s", request.method, request.url.path, host)
         return JSONResponse({"detail": "host not allowed"}, status_code=403)
+    # Google returns from its consent page as a cross-site top-level GET. This
+    # one endpoint is safe to admit because the handler consumes a random,
+    # server-side, 15-minute one-time OAuth state before exchanging the code.
+    is_google_oauth_callback = (
+        request.method == "GET"
+        and request.url.path == "/api/oauth/google/callback"
+    )
+    if is_google_oauth_callback:
+        return await call_next(request)
     origin = request.headers.get("origin")
     if origin is not None:
         allowed = bool(_LOCAL_ORIGIN.fullmatch(origin))
