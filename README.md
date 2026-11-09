@@ -99,6 +99,10 @@ Backend tự động đọc `.env` khi khởi động. Biến môi trường đ�
 hệ điều hành vẫn có độ ưu tiên cao hơn giá trị trong file. Sau khi sửa `.env`,
 hãy khởi động lại Electron.
 
+Các giá trị OpenAI cũng có thể chỉnh tại **Settings → OpenAI**. API key hiện
+tại chỉ được hiển thị dưới dạng trạng thái đã cấu hình; backend không gửi lại
+secret cho giao diện. Sau khi lưu, hãy khởi động lại ứng dụng.
+
 ### Biến môi trường chính
 
 | Biến | Mặc định | Mô tả |

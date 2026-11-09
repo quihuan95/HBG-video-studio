@@ -61,7 +61,9 @@ async function createWindow(rendererUrl) {
 
   if (process.argv.includes('--dev')) {
     await window.loadURL('http://127.0.0.1:5173')
-    window.webContents.openDevTools({ mode: 'detach' })
+    if (process.env.ELECTRON_OPEN_DEVTOOLS === '1') {
+      window.webContents.openDevTools({ mode: 'detach' })
+    }
   } else {
     await window.loadURL(rendererUrl)
   }

@@ -25,6 +25,15 @@ interface GoogleConnection {
   accountName: string | null
 }
 
+interface OpenAISettings {
+  has_api_key: boolean
+  vision_model: string
+  review_model: string
+  script_model: string
+  tts_model: string
+  restart_required: boolean
+}
+
 // fetchAPI throws `API <status>: <body>` — pull the backend's `detail` back out so a 400 reads verbatim.
 function apiDetail(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err)
@@ -62,6 +71,47 @@ export default function SettingsPage() {
   const [google, setGoogle] = useState<GoogleConnection | null>(null)
   const [googleBusy, setGoogleBusy] = useState(false)
   const [googleError, setGoogleError] = useState<string | null>(null)
+  const [openAI, setOpenAI] = useState<OpenAISettings | null>(null)
+  const [openAIKey, setOpenAIKey] = useState('')
+  const [openAIBusy, setOpenAIBusy] = useState(false)
+  const [openAIMessage, setOpenAIMessage] = useState<SaveState | null>(null)
+
+  const loadOpenAI = useCallback(async () => {
+    try {
+      setOpenAI(await fetchAPI<OpenAISettings>('/api/settings/openai'))
+    } catch (err) {
+      setOpenAIMessage({ ok: false, text: apiDetail(err) })
+    }
+  }, [])
+
+  useEffect(() => { Promise.resolve().then(loadOpenAI) }, [loadOpenAI])
+
+  function updateOpenAI(field: keyof OpenAISettings, value: string) {
+    setOpenAI(prev => prev ? { ...prev, [field]: value } : prev)
+    setOpenAIMessage(null)
+  }
+
+  async function saveOpenAI() {
+    if (!openAI) return
+    setOpenAIBusy(true)
+    setOpenAIMessage(null)
+    try {
+      const result = await patchAPI<OpenAISettings>('/api/settings/openai', {
+        api_key: openAIKey,
+        vision_model: openAI.vision_model,
+        review_model: openAI.review_model,
+        script_model: openAI.script_model,
+        tts_model: openAI.tts_model,
+      })
+      setOpenAI(result)
+      setOpenAIKey('')
+      setOpenAIMessage({ ok: true, text: 'Đã lưu. Hãy khởi động lại ứng dụng để mọi service nhận cấu hình mới.' })
+    } catch (err) {
+      setOpenAIMessage({ ok: false, text: apiDetail(err) })
+    } finally {
+      setOpenAIBusy(false)
+    }
+  }
 
   const loadGoogle = useCallback(async () => {
     try {
@@ -246,6 +296,63 @@ export default function SettingsPage() {
               ))}
             </select>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="py-4">
+        <CardHeader>
+          <CardTitle className="text-xs tracking-widest uppercase">OpenAI</CardTitle>
+          <CardDescription className="text-[11px]">
+            API key được lưu trong file .env local và không bao giờ được trả lại giao diện.
+          </CardDescription>
+          <CardAction>
+            <Button size="sm" disabled={openAIBusy || !openAI} onClick={saveOpenAI}>
+              {openAIBusy ? 'Đang lưu' : 'Lưu OpenAI'}
+            </Button>
+          </CardAction>
+        </CardHeader>
+        <CardContent>
+          {openAI ? (
+            <div className="flex flex-col gap-3">
+              <div className="grid gap-3" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                <label className="flex flex-col gap-1 text-[9px] tracking-widest" style={{ color: 'var(--muted)' }}>
+                  API KEY {openAI.has_api_key ? '· ĐÃ CẤU HÌNH' : '· CHƯA CÓ'}
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={openAIKey}
+                    onChange={e => setOpenAIKey(e.target.value)}
+                    placeholder={openAI.has_api_key ? 'Để trống để giữ key hiện tại' : 'sk-...'}
+                    className={CONTROL_CLASS}
+                    style={CONTROL_STYLE}
+                  />
+                </label>
+                {([
+                  ['vision_model', 'VISION / PHÂN LOẠI FOOTAGE'],
+                  ['review_model', 'VIDEO REVIEW'],
+                  ['script_model', 'SCRIPT / TIMELINE'],
+                  ['tts_model', 'TEXT TO SPEECH'],
+                ] as const).map(([field, label]) => (
+                  <label key={field} className="flex flex-col gap-1 text-[9px] tracking-widest" style={{ color: 'var(--muted)' }}>
+                    {label}
+                    <input
+                      value={openAI[field]}
+                      onChange={e => updateOpenAI(field, e.target.value)}
+                      className={CONTROL_CLASS}
+                      style={CONTROL_STYLE}
+                    />
+                  </label>
+                ))}
+              </div>
+              {openAIMessage && (
+                <span className="text-[10px]" style={{ color: openAIMessage.ok ? 'var(--green)' : 'var(--red)' }}>
+                  {openAIMessage.text}
+                </span>
+              )}
+            </div>
+          ) : (
+            <span className="text-[10px]" style={{ color: 'var(--muted)' }}>Đang tải cấu hình OpenAI…</span>
+          )}
         </CardContent>
       </Card>
 
