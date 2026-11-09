@@ -211,8 +211,11 @@ ID/URL và Google Drive folder chứa Rule. Folder Rule có thể chứa
 `CONTENT_RULE.md`, `BRAND_FACTS.md`, `VIDEO_RULE.md` và
 `PRODUCTION_CONFIG.json`.
 
-Mỗi tab trong Spreadsheet là một video: dòng 1 là tiêu đề, dòng 2 là
-brief, dòng 3 là header và dòng 4 trở đi là các scene/shot.
+Mỗi tab trong Spreadsheet là một video: dòng 1 là tiêu đề, dòng 2 là brief,
+dòng 3 là Google Drive folder footage riêng của video, dòng 4 là header và dòng
+5 trở đi là các scene/shot. Định dạng cũ không có dòng footage vẫn được hỗ trợ.
+Nút **Phân loại footage** dùng OpenAI Vision phân tích clip rồi chuyển chúng vào
+`_AI_CLASSIFIED/<category>` bên trong folder footage tương ứng.
 
 Nhấn **Đồng bộ Rule + Sheet**, sau đó mở **Lịch sản xuất**.
 Tab chưa có job có thể tạo Production Job ngay trên lịch. Mỗi job

@@ -41,7 +41,7 @@ _COLUMNS = {
                            "brand", "profile_type", "timezone", "default_time", "folder_id_rules", "folder_id_output",
                            "sheet_id_topics", "workflow_mode", "active", "color", "logo_data", "facebook_page_id",
                            "retain_removed_posts"},
-    "footage_source": {"name", "location", "recursive", "enabled", "last_scanned_at", "updated_at"},
+    "footage_source": {"video_topic_id", "name", "location", "recursive", "enabled", "last_scanned_at", "updated_at"},
     "footage_asset": {"external_id", "file_name", "uri", "mime_type", "size_bytes", "duration_s", "width", "height", "fps",
                       "status", "summary", "category", "tags_json", "usable_ranges_json", "quality_score", "has_dialogue",
                       "analysis_json", "error_message", "analyzed_at", "updated_at"},
@@ -198,13 +198,14 @@ async def list_production_profiles() -> list[dict]:
     return [dict(row) for row in await cur.fetchall()]
 
 async def create_footage_source(profile_id: str, source_type: str, name: str, location: str,
-                                recursive: bool = True, enabled: bool = True) -> dict:
+                                recursive: bool = True, enabled: bool = True,
+                                video_topic_id: str | None = None) -> dict:
     db = await get_db()
     source_id, now = _uuid(), _now()
     async with _db_lock:
         await db.execute(
-            "INSERT INTO footage_source (id,profile_id,source_type,name,location,recursive,enabled,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
-            (source_id, profile_id, source_type, name, location, int(recursive), int(enabled), now, now))
+            "INSERT INTO footage_source (id,profile_id,video_topic_id,source_type,name,location,recursive,enabled,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (source_id, profile_id, video_topic_id, source_type, name, location, int(recursive), int(enabled), now, now))
         await db.commit()
     return await _get_with_db(db, "footage_source", "id", source_id)
 

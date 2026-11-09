@@ -37,6 +37,28 @@ def test_overlapping_timecodes_are_rejected():
         parse_video_tab(data, "Bad")
 
 
+def test_parse_new_row_three_footage_folder_and_row_four_headers():
+    data = [SHEET[0], SHEET[1], ["Footage folder", "https://drive.google.com/drive/folders/folder_12345678901234567890"], *SHEET[2:]]
+    result = parse_video_tab(data, "Video with footage")
+    assert result["footage_folder_url"].endswith("folder_12345678901234567890")
+    assert len(result["scenes"]) == 2
+
+
+def test_inbound_headers_accept_english_voice_and_optional_audio_notes():
+    data = [
+        ["INBOUND VIDEO"], ["Format 9:16 | English only"],
+        ["Phần", "Shot", "Timecode", "Hình ảnh đề xuất", "Text on screen (EN) – hiển thị",
+         "Dịch tiếng Việt – nội bộ", "Voice-over (EN) – lời đọc",
+         "Dịch Voice-over (VI) – nội bộ", "Cách dựng", "Tư liệu tham khảo"],
+        ["Hook", "OF", "00:00–00:03", "Hanoi", "HANOI", "HÀ NỘI", "Welcome to Hanoi",
+         "Chào mừng đến Hà Nội", "Fast cut", "Hanoi footage"],
+    ]
+    result = parse_video_tab(data, "Inbound")
+    assert result["scenes"][0]["narration_text"] == "Welcome to Hanoi"
+    assert result["scenes"][0]["audio_instruction"] == ""
+    assert result["scenes"][0]["notes"] == ""
+
+
 @pytest.mark.asyncio
 async def test_job_snapshots_tab_scenes_and_replaces_topic(test_db):
     profile = await crud.create_production_profile(name="HBG", rules_json="{}", color="#123456")

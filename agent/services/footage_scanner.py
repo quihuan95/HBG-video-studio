@@ -65,6 +65,9 @@ def drive_folder_id(location: str) -> str:
     match = re.search(r"/folders/([A-Za-z0-9_-]+)", location)
     if match:
         return match.group(1)
+    match = re.search(r"[?&]id=([A-Za-z0-9_-]+)", location)
+    if match:
+        return match.group(1)
     if re.fullmatch(r"[A-Za-z0-9_-]+", location):
         return location
     raise ValueError("Google Drive location must be a folder URL or folder ID")

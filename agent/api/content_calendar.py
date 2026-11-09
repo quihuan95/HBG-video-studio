@@ -12,6 +12,7 @@ from agent.services.video_planning import (
 from agent.services.drive_output_export import (
     DriveExportError, approve_production_job, export_production_job,
 )
+from agent.services.video_footage_pipeline import classify_video_footage
 
 router = APIRouter(tags=["content-calendar"])
 
@@ -44,6 +45,13 @@ async def _profile(profile_id: str) -> dict:
     profile = await crud.get_production_profile(profile_id)
     if not profile: raise HTTPException(404, "Production profile not found")
     return profile
+
+
+async def _prepare_topic_footage(video_topic_id: str) -> None:
+    from agent.services.video_planning import _rows
+    topics = await _rows("SELECT footage_folder_url,footage_status FROM video_topics WHERE id=?", (video_topic_id,))
+    if topics and topics[0].get("footage_folder_url") and topics[0].get("footage_status") != "READY":
+        await classify_video_footage(video_topic_id)
 
 
 @router.get("/profiles/{profile_id}/rules")
@@ -93,12 +101,25 @@ async def get_video_topics(all: bool = False):
     return await list_video_topics(all)
 
 
+@router.post("/video-topics/{video_topic_id}/classify-footage")
+async def classify_topic_footage(video_topic_id: str):
+    try:
+        return await classify_video_footage(video_topic_id)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(502, f"Footage classification failed: {exc}") from exc
+
+
 @router.post("/posts", status_code=201)
 async def add_post(body: PostCreate):
     profile = await _profile(body.profile_id)
     if not body.topic_id: raise HTTPException(400, "video_topic_id is required")
-    try: return await create_production_job(profile, body.topic_id, body.date, body.time)
+    try:
+        await _prepare_topic_footage(body.topic_id)
+        return await create_production_job(profile, body.topic_id, body.date, body.time)
     except ValueError as exc: raise HTTPException(400, str(exc)) from exc
+    except Exception as exc: raise HTTPException(502, f"Footage preparation failed: {exc}") from exc
 
 
 @router.get("/posts")
@@ -110,8 +131,11 @@ async def get_posts():
 @router.post("/production-jobs", status_code=201)
 async def add_production_job(body: ProductionJobCreate):
     profile = await _profile(body.profile_id)
-    try: return await create_production_job(profile, body.video_topic_id, body.production_date, body.scheduled_time)
+    try:
+        await _prepare_topic_footage(body.video_topic_id)
+        return await create_production_job(profile, body.video_topic_id, body.production_date, body.scheduled_time)
     except ValueError as exc: raise HTTPException(400, str(exc)) from exc
+    except Exception as exc: raise HTTPException(502, f"Footage preparation failed: {exc}") from exc
 
 
 @router.get("/production-jobs")

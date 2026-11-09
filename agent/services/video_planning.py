@@ -45,8 +45,31 @@ HEADER_MAP = {
     "cach_dung": "editing_instruction", "tu_lieu_tham_khao": "footage_references",
     "am_thanh": "audio_instruction", "ghi_chu": "notes",
 }
+SCENE_FIELDS = {"section", "shot_code", "timecode", "visual_intent", "on_screen_text",
+                "narration_text", "editing_instruction", "footage_references", "audio_instruction", "notes"}
 REQUIRED = {"section", "shot_code", "timecode", "visual_intent", "on_screen_text",
-            "narration_text", "editing_instruction", "footage_references", "audio_instruction", "notes"}
+            "narration_text", "editing_instruction", "footage_references"}
+
+
+def _header_field(value: str) -> str:
+    key = _key(value)
+    if key.startswith("text_on_screen"): return "on_screen_text"
+    if key.startswith("voice_over_") and not key.startswith("voice_over_dich"): return "narration_text"
+    if key.startswith("dich_voice_over") or key.startswith("dich_tieng_viet"): return ""
+    if key.startswith("hinh_anh_de_xuat"): return "visual_intent"
+    if key.startswith("cach_dung"): return "editing_instruction"
+    if key.startswith("tu_lieu_tham_khao"): return "footage_references"
+    if key.startswith("am_thanh"): return "audio_instruction"
+    if key.startswith("ghi_chu"): return "notes"
+    return HEADER_MAP.get(key, "")
+
+
+def _footage_link(row: list) -> str:
+    for cell in row:
+        value = str(cell).strip()
+        if re.search(r"drive\.google\.com/(?:drive/(?:u/\d+/)?folders|open)", value) or re.fullmatch(r"[A-Za-z0-9_-]{20,}", value):
+            return value
+    return ""
 
 
 def _seconds(value: str) -> float:
@@ -68,11 +91,14 @@ def parse_video_tab(values: list[list], tab_name: str) -> dict:
     title = str(values[0][0]).strip() if values and values[0] else tab_name
     brief = str(values[1][0]).strip() if len(values) > 1 and values[1] else ""
     if len(values) < 3: raise ValueError(f"Tab '{tab_name}' must contain title, brief and headers")
-    normalized = [HEADER_MAP.get(_key(str(cell)), "") for cell in values[2][:10]]
+    footage_folder_url = _footage_link(values[2]) if len(values) > 2 else ""
+    header_index = 3 if footage_folder_url else 2
+    if len(values) <= header_index: raise ValueError(f"Tab '{tab_name}' has no scene headers")
+    normalized = [_header_field(str(cell)) for cell in values[header_index]]
     missing = REQUIRED - set(normalized)
     if missing: raise ValueError(f"Tab '{tab_name}' is missing columns: {', '.join(sorted(missing))}")
     scenes = []; previous_end = 0.0
-    for row_number, raw in enumerate(values[3:], start=4):
+    for row_number, raw in enumerate(values[header_index + 1:], start=header_index + 2):
         if not any(str(cell).strip() for cell in raw): continue
         data = {normalized[i]: str(raw[i]).strip() if i < len(raw) else "" for i in range(len(normalized)) if normalized[i]}
         if not data.get("timecode"): raise ValueError(f"Tab '{tab_name}' row {row_number} has no timecode")
@@ -80,10 +106,11 @@ def parse_video_tab(values: list[list], tab_name: str) -> dict:
         if start < previous_end: raise ValueError(f"Tab '{tab_name}' row {row_number} overlaps the previous scene")
         previous_end = end
         scenes.append({"scene_order": len(scenes) + 1, "start_time_s": start, "end_time_s": end,
-                       "duration_s": end - start, **{key: data.get(key, "") for key in REQUIRED if key != "timecode"}})
+                       "duration_s": end - start, **{key: data.get(key, "") for key in SCENE_FIELDS if key != "timecode"}})
     if not scenes: raise ValueError(f"Tab '{tab_name}' contains no scenes")
     orientation = "VERTICAL" if re.search(r"(?:9\s*:\s*16|vertical|dọc)", brief, re.I) else "HORIZONTAL"
-    return {"title": title or tab_name, "brief": brief, "orientation": orientation,
+    return {"title": title or tab_name, "brief": brief, "footage_folder_url": footage_folder_url,
+            "orientation": orientation,
             "target_duration_s": scenes[-1]["end_time_s"], "scenes": scenes}
 
 
@@ -110,15 +137,15 @@ async def sync_spreadsheet(profile: dict) -> dict:
             old = old_rows[0]
             if old["source_hash"] != digest or old["source_tab_name"] != props["title"] or old["status"] != status:
                 revision = old["source_revision"] + (old["source_hash"] != digest)
-                await db.execute("UPDATE video_topics SET source_tab_name=?,title=?,brief=?,orientation=?,target_duration_s=?,status=?,source_revision=?,source_hash=?,updated_at=? WHERE id=?",
-                    (props["title"], parsed["title"], parsed["brief"], parsed["orientation"], parsed["target_duration_s"], status, revision, digest, now, old["id"]))
+                await db.execute("UPDATE video_topics SET source_tab_name=?,title=?,brief=?,footage_folder_url=?,orientation=?,target_duration_s=?,status=?,source_revision=?,source_hash=?,updated_at=? WHERE id=?",
+                    (props["title"], parsed["title"], parsed["brief"], parsed["footage_folder_url"], parsed["orientation"], parsed["target_duration_s"], status, revision, digest, now, old["id"]))
                 if old["source_hash"] != digest:
                     await db.execute("DELETE FROM video_topic_scenes WHERE video_topic_id=?", (old["id"],)); await _insert_scenes(db, old["id"], parsed["scenes"])
                 updated += 1
             topic_id = old["id"]
         else:
-            topic_id = _id(); await db.execute("INSERT INTO video_topics(id,profile_id,spreadsheet_id,source_sheet_id,source_tab_name,title,brief,orientation,target_duration_s,status,source_hash,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                (topic_id, profile["id"], sid, source_sheet_id, props["title"], parsed["title"], parsed["brief"], parsed["orientation"], parsed["target_duration_s"], status, digest, now, now)); await _insert_scenes(db, topic_id, parsed["scenes"]); inserted += 1
+            topic_id = _id(); await db.execute("INSERT INTO video_topics(id,profile_id,spreadsheet_id,source_sheet_id,source_tab_name,title,brief,footage_folder_url,orientation,target_duration_s,status,source_hash,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (topic_id, profile["id"], sid, source_sheet_id, props["title"], parsed["title"], parsed["brief"], parsed["footage_folder_url"], parsed["orientation"], parsed["target_duration_s"], status, digest, now, now)); await _insert_scenes(db, topic_id, parsed["scenes"]); inserted += 1
         if status == "ARCHIVED": archived += 1
     existing = await _rows("SELECT id,source_sheet_id FROM video_topics WHERE profile_id=? AND spreadsheet_id=?", (profile["id"], sid))
     for item in existing:

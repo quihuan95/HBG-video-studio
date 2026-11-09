@@ -132,6 +132,11 @@ nhưng không suy đoán khi thiếu một cột bắt buộc.
 
 ### 4.2 Chuẩn hóa một tab thành Video Topic
 
+Mỗi tab dùng cấu trúc: dòng 1 tiêu đề, dòng 2 brief, dòng 3 link Google Drive
+folder footage riêng, dòng 4 header và dòng 5 trở đi là scene. Sau khi đồng bộ,
+người dùng có thể chạy phân loại footage; OpenAI Vision đọc frame mẫu và hệ
+thống tổ chức file vào `_AI_CLASSIFIED/<category>` trong chính folder đó.
+
 Metadata video lấy từ tab:
 
 ```text

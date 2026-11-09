@@ -188,6 +188,7 @@ CREATE TABLE IF NOT EXISTS production_profile (
 CREATE TABLE IF NOT EXISTS footage_source (
     id          TEXT PRIMARY KEY,
     profile_id  TEXT NOT NULL REFERENCES production_profile(id) ON DELETE CASCADE,
+    video_topic_id TEXT REFERENCES video_topics(id) ON DELETE CASCADE,
     source_type TEXT NOT NULL CHECK(source_type IN ('local','google_drive')),
     name        TEXT NOT NULL,
     location    TEXT NOT NULL,
@@ -273,6 +274,10 @@ CREATE TABLE IF NOT EXISTS video_topics (
     spreadsheet_id TEXT NOT NULL,
     source_sheet_id INTEGER NOT NULL,
     source_tab_name TEXT NOT NULL,
+    footage_folder_url TEXT,
+    footage_folder_id TEXT,
+    footage_status TEXT NOT NULL DEFAULT 'PENDING',
+    footage_error TEXT,
     title TEXT NOT NULL,
     brief TEXT NOT NULL DEFAULT '',
     orientation TEXT NOT NULL DEFAULT 'VERTICAL',
@@ -591,6 +596,19 @@ CREATE INDEX IF NOT EXISTS idx_request_scene ON request(scene_id);
         for name, definition in profile_additions.items():
             if name not in profile_columns:
                 await db.execute(f"ALTER TABLE production_profile ADD COLUMN {name} {definition}")
+        cursor = await db.execute("PRAGMA table_info(video_topics)")
+        video_topic_columns = {row[1] for row in await cursor.fetchall()}
+        video_topic_additions = {
+            "footage_folder_url": "TEXT", "footage_folder_id": "TEXT",
+            "footage_status": "TEXT NOT NULL DEFAULT 'PENDING'", "footage_error": "TEXT",
+        }
+        for name, definition in video_topic_additions.items():
+            if name not in video_topic_columns:
+                await db.execute(f"ALTER TABLE video_topics ADD COLUMN {name} {definition}")
+        cursor = await db.execute("PRAGMA table_info(footage_source)")
+        footage_source_columns = {row[1] for row in await cursor.fetchall()}
+        if "video_topic_id" not in footage_source_columns:
+            await db.execute("ALTER TABLE footage_source ADD COLUMN video_topic_id TEXT REFERENCES video_topics(id) ON DELETE CASCADE")
         # Migration: create material table if missing
         cursor = await db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='material'")
         if not await cursor.fetchone():
