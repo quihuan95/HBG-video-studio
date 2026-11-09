@@ -51,16 +51,12 @@ def _local_path(uri: str) -> Path:
     return Path(path)
 
 
-def _download_drive(file_id: str, destination: Path) -> None:
-    from google.oauth2 import service_account
+def _download_drive(file_id: str, destination: Path, access_token: str) -> None:
+    from google.oauth2.credentials import Credentials
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaIoBaseDownload
 
-    credentials_file = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "")
-    if not credentials_file:
-        raise ValueError("GOOGLE_SERVICE_ACCOUNT_FILE is required to analyze Drive footage")
-    credentials = service_account.Credentials.from_service_account_file(
-        credentials_file, scopes=["https://www.googleapis.com/auth/drive.readonly"])
+    credentials = Credentials(token=access_token)
     service = build("drive", "v3", credentials=credentials, cache_discovery=False)
     request = service.files().get_media(fileId=file_id)
     with destination.open("wb") as output:
@@ -77,8 +73,12 @@ async def _materialize(asset: dict, temp_dir: Path) -> Path:
             raise FileNotFoundError(path)
         return path
     if asset["uri"].startswith("gdrive://"):
+        from agent.services.google_oauth import get_valid_access_token
         destination = temp_dir / asset["file_name"]
-        await asyncio.to_thread(_download_drive, asset["external_id"] or asset["uri"][9:], destination)
+        access_token = await get_valid_access_token()
+        await asyncio.to_thread(
+            _download_drive, asset["external_id"] or asset["uri"][9:], destination, access_token
+        )
         return destination
     raise ValueError(f"Unsupported footage URI: {asset['uri']}")
 

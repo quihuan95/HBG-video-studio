@@ -231,6 +231,33 @@ CREATE INDEX IF NOT EXISTS idx_footage_asset_profile ON footage_asset(profile_id
 CREATE INDEX IF NOT EXISTS idx_footage_asset_source ON footage_asset(source_id);
 CREATE INDEX IF NOT EXISTS idx_footage_asset_status ON footage_asset(status);
 
+CREATE TABLE IF NOT EXISTS oauth_states (
+    state        TEXT PRIMARY KEY,
+    user_id      TEXT NOT NULL,
+    redirect_uri TEXT NOT NULL,
+    expires_at   TEXT NOT NULL,
+    created_at   TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS connections (
+    id                TEXT PRIMARY KEY,
+    provider          TEXT NOT NULL,
+    user_id           TEXT NOT NULL,
+    encrypted_tokens  TEXT NOT NULL,
+    scopes            TEXT NOT NULL,
+    account_email     TEXT,
+    account_name      TEXT,
+    status            TEXT NOT NULL DEFAULT 'active'
+                        CHECK(status IN ('active','needs_reconnect')),
+    last_health_check TEXT,
+    created_at        TEXT NOT NULL,
+    updated_at        TEXT NOT NULL,
+    UNIQUE(provider, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_states_expires ON oauth_states(expires_at);
+CREATE INDEX IF NOT EXISTS idx_connections_provider_user ON connections(provider, user_id);
+
 -- Persistent provider jobs: the handoff queue between the FlowKit worker and
 -- external media providers/agents (assistant, HTTP workers, ...). A job is
 -- created QUEUED, claimed by a worker (claim/lease), heartbeated while

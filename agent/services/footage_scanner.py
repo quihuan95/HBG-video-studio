@@ -1,7 +1,6 @@
 """Discover footage from local folders and Google Drive folders."""
 import asyncio
 import json
-import os
 import re
 from pathlib import Path
 
@@ -72,16 +71,14 @@ def drive_folder_id(location: str) -> str:
 
 
 async def scan_google_drive(source: dict) -> list[dict]:
-    credentials_file = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "")
-    if not credentials_file:
-        raise ValueError("GOOGLE_SERVICE_ACCOUNT_FILE is required for Google Drive sources")
+    from agent.services.google_oauth import get_valid_access_token
+    access_token = await get_valid_access_token()
 
     def _list_files():
-        from google.oauth2 import service_account
+        from google.oauth2.credentials import Credentials
         from googleapiclient.discovery import build
 
-        credentials = service_account.Credentials.from_service_account_file(
-            credentials_file, scopes=["https://www.googleapis.com/auth/drive.readonly"])
+        credentials = Credentials(token=access_token)
         service = build("drive", "v3", credentials=credentials, cache_discovery=False)
         folder_id = drive_folder_id(source["location"])
         query = f"'{folder_id}' in parents and trashed=false and mimeType contains 'video/'"

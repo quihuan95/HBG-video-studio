@@ -18,6 +18,13 @@ interface SaveState {
   text: string
 }
 
+interface GoogleConnection {
+  provider: 'google'
+  status: 'active' | 'needs_reconnect' | 'not_connected'
+  accountEmail: string | null
+  accountName: string | null
+}
+
 // fetchAPI throws `API <status>: <body>` — pull the backend's `detail` back out so a 400 reads verbatim.
 function apiDetail(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err)
@@ -52,6 +59,45 @@ export default function SettingsPage() {
   const [saveState, setSaveState] = useState<Record<string, SaveState>>({})
   const [testing, setTesting] = useState(false)
   const [testError, setTestError] = useState<string | null>(null)
+  const [google, setGoogle] = useState<GoogleConnection | null>(null)
+  const [googleBusy, setGoogleBusy] = useState(false)
+  const [googleError, setGoogleError] = useState<string | null>(null)
+
+  const loadGoogle = useCallback(async () => {
+    try {
+      setGoogle(await fetchAPI<GoogleConnection>('/api/oauth/google/status'))
+    } catch (err) {
+      setGoogleError(apiDetail(err))
+    }
+  }, [])
+
+  useEffect(() => { Promise.resolve().then(loadGoogle) }, [loadGoogle])
+
+  async function connectGoogle() {
+    setGoogleBusy(true)
+    setGoogleError(null)
+    try {
+      const result = await fetchAPI<{ authorizationUrl: string }>('/api/oauth/google/start')
+      window.open(result.authorizationUrl, '_blank', 'noopener,noreferrer')
+    } catch (err) {
+      setGoogleError(apiDetail(err))
+    } finally {
+      setGoogleBusy(false)
+    }
+  }
+
+  async function disconnectGoogle() {
+    setGoogleBusy(true)
+    setGoogleError(null)
+    try {
+      await fetchAPI('/api/oauth/google/connection', { method: 'DELETE' })
+      await loadGoogle()
+    } catch (err) {
+      setGoogleError(apiDetail(err))
+    } finally {
+      setGoogleBusy(false)
+    }
+  }
 
   const loadModels = useCallback(async (provider: string, refresh: boolean) => {
     setModelsLoading(prev => ({ ...prev, [provider]: true }))
@@ -199,6 +245,35 @@ export default function SettingsPage() {
                 <option key={l} value={l}>{LANG_LABELS[l]}</option>
               ))}
             </select>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="py-4">
+        <CardHeader>
+          <CardTitle className="text-xs tracking-widest uppercase">Google Drive &amp; Sheets</CardTitle>
+          <CardDescription className="text-[11px]">
+            {google?.status === 'active'
+              ? `${google.accountName ?? 'Google'} · ${google.accountEmail ?? ''}`
+              : google?.status === 'needs_reconnect'
+                ? 'Phiên Google đã hết hạn, hãy kết nối lại.'
+                : 'Kết nối Google để đọc Sheet, đọc footage và ghi video lên Drive.'}
+          </CardDescription>
+          <CardAction>
+            {google?.status === 'active' ? (
+              <Button variant="outline" size="sm" disabled={googleBusy} onClick={disconnectGoogle}>Ngắt kết nối</Button>
+            ) : (
+              <Button size="sm" disabled={googleBusy} onClick={connectGoogle}>Kết nối Google</Button>
+            )}
+          </CardAction>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3 text-[10px]">
+            <span style={{ color: google?.status === 'active' ? 'var(--green)' : 'var(--muted)' }}>
+              {google?.status ?? 'loading'}
+            </span>
+            <Button variant="outline" size="xs" disabled={googleBusy} onClick={loadGoogle}>Kiểm tra lại</Button>
+            {googleError && <span style={{ color: 'var(--red)' }}>{googleError}</span>}
           </div>
         </CardContent>
       </Card>

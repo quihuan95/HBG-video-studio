@@ -83,7 +83,10 @@ OPENAI_VISION_MODEL=gpt-6-luna
 OPENAI_SCRIPT_MODEL=gpt-6.1-terra
 OPENAI_TTS_MODEL=gpt-realtime-2.1-mini
 
-GOOGLE_SERVICE_ACCOUNT_FILE=D:\secrets\google-service-account.json
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+GOOGLE_REDIRECT_URI=http://127.0.0.1:8100/api/oauth/google/callback
+TOKEN_ENCRYPTION_KEY=64-hex-characters
 
 API_HOST=127.0.0.1
 API_PORT=8100
@@ -106,9 +109,36 @@ hãy khởi động lại Electron.
 | `OPENAI_VISION_MODEL` | `gpt-6-luna` | Model tiết kiệm để phân loại frame đại diện của footage |
 | `OPENAI_SCRIPT_MODEL` | `gpt-6.1-terra` | Model chia kịch bản, ghép cảnh và lập timeline |
 | `OPENAI_TTS_MODEL` | `gpt-realtime-2.1-mini` | Model tạo voice cho narration |
-| `GOOGLE_SERVICE_ACCOUNT_FILE` | trống | Đường dẫn JSON service account cho Google Drive/Sheets |
+| `GOOGLE_CLIENT_ID` | trống | OAuth client ID từ Google Cloud Console |
+| `GOOGLE_CLIENT_SECRET` | trống | OAuth client secret; chỉ backend được đọc |
+| `GOOGLE_REDIRECT_URI` | `http://127.0.0.1:8100/api/oauth/google/callback` | Phải trùng chính xác Authorized redirect URI |
+| `TOKEN_ENCRYPTION_KEY` | trống | Khóa AES-256, 64 ký tự hex, dùng mã hóa OAuth token trong SQLite |
 
 Các cấu hình nâng cao nằm trong [`agent/config.py`](agent/config.py).
+
+### Kết nối Google Drive và Sheets
+
+Không cần tải credential JSON. Trong Google Cloud Console, tạo OAuth client
+loại **Web application**, bật Google Drive API và Google Sheets API, sau đó
+thêm Authorized redirect URI chính xác:
+
+```text
+http://127.0.0.1:8100/api/oauth/google/callback
+```
+
+Authorized JavaScript origins có thể để trống vì authorization code được
+xử lý hoàn toàn ở backend. Chép Client ID và Client secret vào `.env`,
+rồi tạo khóa mã hóa bằng PowerShell:
+
+```powershell
+-join ((1..32 | ForEach-Object { Get-Random -Maximum 256 }) | ForEach-Object { $_.ToString('x2') })
+```
+
+Dán chuỗi 64 ký tự nhận được vào `TOKEN_ENCRYPTION_KEY`. Không đổi
+khóa này sau khi đã kết nối, vì token cũ sẽ không giải mã được.
+Khởi động app, vào **Settings → Google Drive & Sheets → Kết nối
+Google**. Trình duyệt hệ thống sẽ mở trang consent; token trả về được
+mã hóa AES-256-GCM và lưu trong SQLite, không tạo file token JSON.
 
 ## Khởi động ứng dụng
 

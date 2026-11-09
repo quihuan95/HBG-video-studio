@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 # Load local secrets before reading any configuration values. Existing process
 # environment variables take precedence over values from the file.
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
-load_dotenv(_PROJECT_ROOT / ".env", override=False)
+_ENV_PATH = Path(os.environ.get("APP_ENV_PATH", _PROJECT_ROOT / ".env"))
+load_dotenv(_ENV_PATH, override=False)
 
 # ─── Paths ───────────────────────────────────────────────────
 BASE_DIR = Path(os.environ.get("FLOW_AGENT_DIR", _PROJECT_ROOT))
@@ -16,6 +17,23 @@ DB_PATH = BASE_DIR / "flow_agent.db"
 # ─── API Server ──────────────────────────────────────────────
 API_HOST = os.environ.get("API_HOST", "127.0.0.1")
 API_PORT = int(os.environ.get("API_PORT", "8100"))
+
+# ─── Google Workspace OAuth ───────────────────────────────────
+# Credentials are entered directly in .env. OAuth tokens are encrypted in
+# SQLite; no downloaded client/token JSON files are used.
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
+GOOGLE_REDIRECT_URI = os.environ.get(
+    "GOOGLE_REDIRECT_URI", f"http://127.0.0.1:{API_PORT}/api/oauth/google/callback"
+).strip()
+TOKEN_ENCRYPTION_KEY = os.environ.get("TOKEN_ENCRYPTION_KEY", "").strip()
+GOOGLE_LOCAL_USER_ID = os.environ.get("GOOGLE_LOCAL_USER_ID", "local").strip() or "local"
+GOOGLE_SCOPES = (
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/spreadsheets.readonly",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+)
 # Debug/experiment routes under /api/ext/* and /api/test-direct (eval in the
 # Flow tab, raw RPCs, reCAPTCHA mints). Off unless explicitly turned on.
 FLOWKIT_DEBUG_ENDPOINTS = os.environ.get("FLOWKIT_DEBUG_ENDPOINTS", "0") == "1"
