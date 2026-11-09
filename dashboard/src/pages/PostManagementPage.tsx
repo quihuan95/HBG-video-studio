@@ -46,7 +46,7 @@ function ItemRow({ item, busy, run, onCreate, onExport, onClassify }: { item: Co
         <span className="text-[9px]" style={{ color: 'var(--muted)' }}>{item.profile_name} · {item.date} {item.time} · {item.kind === 'topic' ? `FOOTAGE: ${running ? run.stage : item.footage_status || 'PENDING'}` : item.status}</span>
       </div>
       {item.kind === 'topic' && item.footage_folder_url && item.footage_status !== 'READY' && <Button className="ml-auto" size="xs" disabled={running} onClick={() => onClassify(item)}><FolderSearch2 size={11}/>{running ? ' Đang phân loại…' : ' Phân loại footage'}</Button>}
-      {item.kind === 'topic' && <Button size="xs" disabled={busy || running} onClick={() => onCreate(item)}>Tạo video</Button>}
+      {item.kind === 'topic' && <Button size="xs" disabled={busy || running || item.footage_status !== 'READY'} title={item.footage_status === 'READY' ? 'Tạo video' : 'Phải phân loại footage thành công trước'} onClick={() => onCreate(item)}>{item.footage_status === 'READY' ? 'Tạo video' : 'Chờ footage'}</Button>}
       {item.kind === 'job' && item.status === 'APPROVED' && <Button className="ml-auto" size="xs" disabled={busy} onClick={() => onExport(item)}><UploadCloud size={11}/> Xuất Drive</Button>}
       {item.kind === 'job' && item.output_url?.startsWith('https://drive.google.com/') && <a className="ml-auto text-[10px] flex items-center gap-1" style={{ color: 'var(--accent)' }} href={item.output_url} target="_blank" rel="noreferrer"><ExternalLink size={11}/> Mở OUTPUT</a>}
     </div>

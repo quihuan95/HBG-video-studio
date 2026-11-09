@@ -3,6 +3,7 @@ import pytest
 from agent.db import crud
 from agent.db.schema import get_db
 from agent.services.video_footage_pipeline import _category_folder, classify_video_footage
+from agent.api.content_calendar import _prepare_topic_footage
 
 
 def test_category_folder_is_drive_safe():
@@ -45,3 +46,25 @@ async def test_per_video_footage_is_scanned_analyzed_and_organized(monkeypatch, 
     assert organized["root"] == "folder_12345678901234567890"
     source = (await crud.list_footage_sources(profile["id"]))[0]
     assert source["video_topic_id"] == topic_id
+
+
+@pytest.mark.asyncio
+async def test_job_creation_gate_requires_ready_footage(monkeypatch, test_db):
+    profile = await crud.create_production_profile(name="HBG", rules_json="{}")
+    db = await get_db(); now = "2026-11-09T00:00:00+00:00"
+    await db.execute("INSERT INTO video_topics(id,profile_id,spreadsheet_id,source_sheet_id,source_tab_name,title,brief,orientation,target_duration_s,status,source_hash,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,'READY',?,?,?)",
+        ("no-folder", profile["id"], "sheet", 1, "Tab", "Video", "", "VERTICAL", 1, "h", now, now))
+    await db.commit()
+    with pytest.raises(ValueError, match="folder footage"):
+        await _prepare_topic_footage("no-folder")
+
+    await db.execute("UPDATE video_topics SET footage_folder_url=?,footage_status='PARTIAL',footage_error='one clip failed' WHERE id=?",
+                     ("https://drive.google.com/drive/folders/folder_12345678901234567890", "no-folder"))
+    await db.commit()
+
+    async def remains_partial(topic_id):
+        return {"status": "PARTIAL"}
+
+    monkeypatch.setattr("agent.api.content_calendar.classify_video_footage", remains_partial)
+    with pytest.raises(ValueError, match="PARTIAL"):
+        await _prepare_topic_footage("no-folder")

@@ -51,9 +51,18 @@ async def _profile(profile_id: str) -> dict:
 
 async def _prepare_topic_footage(video_topic_id: str) -> None:
     from agent.services.video_planning import _rows
-    topics = await _rows("SELECT footage_folder_url,footage_status FROM video_topics WHERE id=?", (video_topic_id,))
-    if topics and topics[0].get("footage_folder_url") and topics[0].get("footage_status") != "READY":
+    topics = await _rows("SELECT footage_folder_url,footage_status,footage_error FROM video_topics WHERE id=?", (video_topic_id,))
+    if not topics:
+        raise ValueError("Video Topic not found")
+    topic = topics[0]
+    if not topic.get("footage_folder_url"):
+        raise ValueError("Phải cấu hình folder footage ở dòng 3 của tab trước khi tạo video")
+    if topic.get("footage_status") != "READY":
         await classify_video_footage(video_topic_id)
+        topic = (await _rows("SELECT footage_status,footage_error FROM video_topics WHERE id=?", (video_topic_id,)))[0]
+    if topic.get("footage_status") != "READY":
+        detail = topic.get("footage_error") or "Footage chưa được phân loại hoàn tất"
+        raise ValueError(f"Không thể tạo video khi footage ở trạng thái {topic.get('footage_status')}: {detail}")
 
 
 @router.get("/profiles/{profile_id}/rules")

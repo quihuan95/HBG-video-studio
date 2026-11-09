@@ -221,6 +221,9 @@ video; mỗi video chạy độc lập và không khóa thao tác của các vid
 Kết quả được lưu lâu dài trong database và trong `_AI_CLASSIFIED` dưới dạng
 `FOOTAGE_CATALOG.json` (dữ liệu máy đọc) cùng `FOOTAGE_REPORT.md` (báo cáo cho
 người vận hành). Giao diện hiện link mở thẳng folder kết quả sau khi hoàn tất.
+Production Job chỉ được tạo khi video có folder footage và quá trình phân loại
+đạt trạng thái `READY`; `PENDING`, `ANALYZING`, `PARTIAL` và `FAILED` đều bị
+chặn ở cả giao diện lẫn API.
 
 Nhấn **Đồng bộ Rule + Sheet**, sau đó mở **Lịch sản xuất**.
 Tab chưa có job có thể tạo Production Job ngay trên lịch. Mỗi job
