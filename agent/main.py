@@ -29,6 +29,7 @@ from agent.api.models import router as models_router
 from agent.api.providers import router as providers_router
 from agent.api.provider_jobs import router as provider_jobs_router
 from agent.api.active_project import router as active_project_router
+from agent.api.production import router as production_router
 from agent.worker.processor import get_worker_controller
 from agent.services.flow_client import get_flow_client
 from agent.services.event_bus import event_bus
@@ -209,6 +210,7 @@ app.include_router(provider_jobs_router, prefix="/api")
 app.include_router(models_router)
 app.include_router(providers_router)
 app.include_router(active_project_router)
+app.include_router(production_router, prefix="/api")
 
 
 _CALLBACK_SECRET = secrets.token_urlsafe(32)

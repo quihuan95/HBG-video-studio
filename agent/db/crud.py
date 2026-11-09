@@ -10,7 +10,7 @@ from agent.db.schema import get_db, _db_lock
 
 logger = logging.getLogger(__name__)
 
-_VALID_TABLES = frozenset({"character", "project", "video", "scene", "request", "material", "provider_job"})
+_VALID_TABLES = frozenset({"character", "project", "video", "scene", "request", "material", "provider_job", "production_profile", "footage_source", "footage_asset"})
 
 
 def _validate_table(table: str) -> None:
@@ -36,6 +36,12 @@ _COLUMNS = {
     "provider_job": {"provider", "kind", "status", "prompt", "orientation", "source_url", "end_url", "extra",
                      "claimed_by", "claimed_at", "lease_expires_at", "progress", "progress_message",
                      "result", "error_message", "retry_count", "updated_at"},
+    "production_profile": {"name", "description", "language", "tone", "rules_json", "logo_path", "logo_position",
+                           "voice_provider", "voice_id", "music_path", "sheet_url", "output_drive_url", "status", "updated_at"},
+    "footage_source": {"name", "location", "recursive", "enabled", "last_scanned_at", "updated_at"},
+    "footage_asset": {"external_id", "file_name", "uri", "mime_type", "size_bytes", "duration_s", "width", "height", "fps",
+                      "status", "summary", "category", "tags_json", "usable_ranges_json", "quality_score", "has_dialogue",
+                      "analysis_json", "error_message", "analyzed_at", "updated_at"},
 }
 
 
@@ -162,6 +168,81 @@ async def get_project_characters(project_id: str) -> list[dict]:
         "SELECT c.* FROM character c JOIN project_character pc ON c.id=pc.character_id WHERE pc.project_id=?",
         (project_id,))
     return [dict(r) for r in await cur.fetchall()]
+
+
+# ─── Production profiles & footage library ──────────────────────────────────
+
+async def create_production_profile(**data) -> dict:
+    db = await get_db()
+    profile_id, now = _uuid(), _now()
+    fields = _safe_kwargs("production_profile", data)
+    fields.pop("updated_at", None)
+    fields.update({"id": profile_id, "created_at": now, "updated_at": now})
+    columns = ",".join(fields)
+    placeholders = ",".join("?" for _ in fields)
+    async with _db_lock:
+        await db.execute(f"INSERT INTO production_profile ({columns}) VALUES ({placeholders})", tuple(fields.values()))
+        await db.commit()
+    return await _get_with_db(db, "production_profile", "id", profile_id)
+
+async def get_production_profile(profile_id: str): return await _get("production_profile", "id", profile_id)
+async def update_production_profile(profile_id: str, **data): return await _update("production_profile", "id", profile_id, **data)
+async def delete_production_profile(profile_id: str): return await _delete("production_profile", "id", profile_id)
+
+async def list_production_profiles() -> list[dict]:
+    db = await get_db()
+    cur = await db.execute("SELECT * FROM production_profile ORDER BY created_at DESC")
+    return [dict(row) for row in await cur.fetchall()]
+
+async def create_footage_source(profile_id: str, source_type: str, name: str, location: str,
+                                recursive: bool = True, enabled: bool = True) -> dict:
+    db = await get_db()
+    source_id, now = _uuid(), _now()
+    async with _db_lock:
+        await db.execute(
+            "INSERT INTO footage_source (id,profile_id,source_type,name,location,recursive,enabled,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+            (source_id, profile_id, source_type, name, location, int(recursive), int(enabled), now, now))
+        await db.commit()
+    return await _get_with_db(db, "footage_source", "id", source_id)
+
+async def get_footage_source(source_id: str): return await _get("footage_source", "id", source_id)
+async def update_footage_source(source_id: str, **data): return await _update("footage_source", "id", source_id, **data)
+async def delete_footage_source(source_id: str): return await _delete("footage_source", "id", source_id)
+
+async def list_footage_sources(profile_id: str) -> list[dict]:
+    db = await get_db()
+    cur = await db.execute("SELECT * FROM footage_source WHERE profile_id=? ORDER BY created_at", (profile_id,))
+    return [dict(row) for row in await cur.fetchall()]
+
+async def upsert_footage_asset(profile_id: str, source_id: str, file_name: str, uri: str, **data) -> dict:
+    db = await get_db()
+    now = _now()
+    cur = await db.execute("SELECT id FROM footage_asset WHERE source_id=? AND uri=?", (source_id, uri))
+    existing = await cur.fetchone()
+    if existing:
+        return await _update("footage_asset", "id", existing[0], file_name=file_name, uri=uri, **data)
+    asset_id = _uuid()
+    fields = _safe_kwargs("footage_asset", data)
+    fields.pop("updated_at", None)
+    fields.update({"id": asset_id, "profile_id": profile_id, "source_id": source_id,
+                   "file_name": file_name, "uri": uri, "created_at": now, "updated_at": now})
+    columns = ",".join(fields)
+    placeholders = ",".join("?" for _ in fields)
+    async with _db_lock:
+        await db.execute(f"INSERT INTO footage_asset ({columns}) VALUES ({placeholders})", tuple(fields.values()))
+        await db.commit()
+    return await _get_with_db(db, "footage_asset", "id", asset_id)
+
+async def get_footage_asset(asset_id: str): return await _get("footage_asset", "id", asset_id)
+async def update_footage_asset(asset_id: str, **data): return await _update("footage_asset", "id", asset_id, **data)
+
+async def list_footage_assets(profile_id: str, status: str | None = None) -> list[dict]:
+    db = await get_db()
+    if status:
+        cur = await db.execute("SELECT * FROM footage_asset WHERE profile_id=? AND status=? ORDER BY file_name", (profile_id, status))
+    else:
+        cur = await db.execute("SELECT * FROM footage_asset WHERE profile_id=? ORDER BY file_name", (profile_id,))
+    return [dict(row) for row in await cur.fetchall()]
 
 
 # ─── Video ──────────────────────────────────────────────────

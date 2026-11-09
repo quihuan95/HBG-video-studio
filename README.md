@@ -109,6 +109,13 @@ $env:FLOW_GENERATION_MAX_CONCURRENT = "1"
 $env:FLOW_GENERATION_MIN_INTERVAL_S = "3"
 $env:FLOW_UNUSUAL_ACTIVITY_COOLDOWN_S = "3600"
 $env:FLOWKIT_DEBUG_ENDPOINTS = "0"
+
+# AI phân loại footage
+$env:OPENAI_API_KEY = "sk-..."
+$env:OPENAI_VISION_MODEL = "gpt-6.1-sol"
+
+# Google Drive/Sheets: share các folder và sheet cho email service account
+$env:GOOGLE_SERVICE_ACCOUNT_FILE = "D:\secrets\google-service-account.json"
 ```
 
 Các biến trên chỉ tồn tại trong phiên PowerShell hiện tại. Sau khi thay đổi cấu
@@ -129,6 +136,9 @@ hình, hãy khởi động lại backend.
 | `FLOW_UNUSUAL_ACTIVITY_COOLDOWN_S` | `3600` | Thời gian dừng khi Google phát hiện hoạt động bất thường |
 | `FLOW_ALLOW_DEGRADED` | `0` | Cho phép chaining/r2v fallback xuống i2v |
 | `FLOWKIT_DEBUG_ENDPOINTS` | `0` | Bật các endpoint debug; nên giữ `0` khi vận hành |
+| `OPENAI_API_KEY` | trống | API key dùng để phân tích footage và các tác vụ OpenAI |
+| `OPENAI_VISION_MODEL` | `gpt-6.1-sol` | Model phân loại frame đại diện của footage |
+| `GOOGLE_SERVICE_ACCOUNT_FILE` | trống | Đường dẫn JSON service account cho Google Drive/Sheets |
 
 Các cấu hình nâng cao nằm trong [`agent/config.py`](agent/config.py).
 
@@ -212,6 +222,30 @@ GET  /api/requests/batch-status
 
 Không nên tự tạo vòng lặp gửi request liên tục vì có thể kích hoạt cơ chế chống
 lạm dụng của Google.
+
+## Profile và thư viện footage
+
+Mỗi chủ đề được lưu thành một production profile, gồm rule dựng, logo, voice,
+nhạc, Google Sheet kịch bản, các nguồn footage và folder Drive đầu ra. Một
+profile có thể dùng đồng thời nhiều folder local và Google Drive.
+
+API nền tảng:
+
+```text
+POST   /api/profiles
+GET    /api/profiles
+PATCH  /api/profiles/{profile_id}
+POST   /api/profiles/{profile_id}/footage-sources
+GET    /api/profiles/{profile_id}/footage-sources
+POST   /api/footage-sources/{source_id}/scan
+GET    /api/profiles/{profile_id}/footage
+POST   /api/footage/{asset_id}/analyze
+```
+
+`footage-sources` nhận `source_type` là `local` hoặc `google_drive`. Với Drive,
+`location` có thể là URL folder hoặc folder ID. OpenAI không nhận trực tiếp
+video trong Responses API, vì vậy hệ thống dùng FFmpeg lấy tối đa 10 frame đại
+diện rồi lưu kết quả phân loại có cấu trúc vào SQLite.
 
 ## API và tài liệu kỹ thuật
 

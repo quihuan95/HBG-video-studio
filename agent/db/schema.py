@@ -167,6 +167,71 @@ CREATE INDEX IF NOT EXISTS idx_request_status ON request(status);
 CREATE INDEX IF NOT EXISTS idx_request_scene ON request(scene_id);
 CREATE INDEX IF NOT EXISTS idx_video_project ON video(project_id);
 
+CREATE TABLE IF NOT EXISTS production_profile (
+    id                TEXT PRIMARY KEY,
+    name              TEXT NOT NULL,
+    description       TEXT,
+    language          TEXT NOT NULL DEFAULT 'vi',
+    tone              TEXT,
+    rules_json        TEXT NOT NULL DEFAULT '{}',
+    logo_path         TEXT,
+    logo_position     TEXT NOT NULL DEFAULT 'top-right',
+    voice_provider    TEXT NOT NULL DEFAULT 'openai',
+    voice_id          TEXT NOT NULL DEFAULT 'marin',
+    music_path        TEXT,
+    sheet_url         TEXT,
+    output_drive_url  TEXT,
+    status            TEXT NOT NULL DEFAULT 'ACTIVE' CHECK(status IN ('ACTIVE','ARCHIVED')),
+    created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+CREATE TABLE IF NOT EXISTS footage_source (
+    id          TEXT PRIMARY KEY,
+    profile_id  TEXT NOT NULL REFERENCES production_profile(id) ON DELETE CASCADE,
+    source_type TEXT NOT NULL CHECK(source_type IN ('local','google_drive')),
+    name        TEXT NOT NULL,
+    location    TEXT NOT NULL,
+    recursive   INTEGER NOT NULL DEFAULT 1,
+    enabled     INTEGER NOT NULL DEFAULT 1,
+    last_scanned_at TEXT,
+    created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+CREATE TABLE IF NOT EXISTS footage_asset (
+    id            TEXT PRIMARY KEY,
+    profile_id    TEXT NOT NULL REFERENCES production_profile(id) ON DELETE CASCADE,
+    source_id     TEXT NOT NULL REFERENCES footage_source(id) ON DELETE CASCADE,
+    external_id   TEXT,
+    file_name     TEXT NOT NULL,
+    uri           TEXT NOT NULL,
+    mime_type     TEXT,
+    size_bytes    INTEGER,
+    duration_s    REAL,
+    width         INTEGER,
+    height        INTEGER,
+    fps           REAL,
+    status        TEXT NOT NULL DEFAULT 'DISCOVERED' CHECK(status IN ('DISCOVERED','ANALYZING','READY','FAILED')),
+    summary       TEXT,
+    category      TEXT,
+    tags_json     TEXT NOT NULL DEFAULT '[]',
+    usable_ranges_json TEXT NOT NULL DEFAULT '[]',
+    quality_score REAL,
+    has_dialogue  INTEGER,
+    analysis_json TEXT,
+    error_message TEXT,
+    analyzed_at   TEXT,
+    created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    UNIQUE(source_id, uri)
+);
+
+CREATE INDEX IF NOT EXISTS idx_footage_source_profile ON footage_source(profile_id);
+CREATE INDEX IF NOT EXISTS idx_footage_asset_profile ON footage_asset(profile_id);
+CREATE INDEX IF NOT EXISTS idx_footage_asset_source ON footage_asset(source_id);
+CREATE INDEX IF NOT EXISTS idx_footage_asset_status ON footage_asset(status);
+
 -- Persistent provider jobs: the handoff queue between the FlowKit worker and
 -- external media providers/agents (assistant, HTTP workers, ...). A job is
 -- created QUEUED, claimed by a worker (claim/lease), heartbeated while
