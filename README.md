@@ -220,6 +220,13 @@ snapshot Rule version và toàn bộ scene tại thời điểm tạo.
 
 Lịch hiện là lịch sản xuất nội bộ và giữ đúng timezone của Profile.
 
+Khi video đã render xong, duyệt Production Job bằng
+`POST /api/production-jobs/{job_id}/approve` với `output_path` trỏ tới file
+video local. Ứng dụng tự tạo cây `OUTPUT/DD-MM-YYYY/Tên video/vN`, upload
+`final.mp4`, `video.json`, `REVIEW.md` và chuyển job sang
+`READY_FOR_MANUAL_UPLOAD`. Nếu Drive lỗi, job giữ `APPROVED` và có thể retry
+qua `POST /api/production-jobs/{job_id}/export` hoặc nút **Xuất Drive**.
+
 ## Quy trình sản xuất video
 
 ```text

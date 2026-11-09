@@ -336,8 +336,32 @@ CREATE TABLE IF NOT EXISTS production_revisions (
     created_at TEXT NOT NULL,
     UNIQUE(production_job_id, revision)
 );
+CREATE TABLE IF NOT EXISTS production_exports (
+    id TEXT PRIMARY KEY,
+    production_job_id TEXT NOT NULL REFERENCES production_jobs(id) ON DELETE CASCADE,
+    revision_id TEXT NOT NULL REFERENCES production_revisions(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'EXPORTED',
+    drive_folder_id TEXT NOT NULL,
+    drive_video_file_id TEXT NOT NULL,
+    drive_manifest_file_id TEXT,
+    drive_review_file_id TEXT,
+    drive_folder_url TEXT NOT NULL,
+    files_json TEXT NOT NULL DEFAULT '{}',
+    exported_at TEXT NOT NULL,
+    UNIQUE(production_job_id, revision_id)
+);
+CREATE TABLE IF NOT EXISTS production_audit_events (
+    id TEXT PRIMARY KEY,
+    production_job_id TEXT NOT NULL REFERENCES production_jobs(id) ON DELETE CASCADE,
+    revision_id TEXT REFERENCES production_revisions(id) ON DELETE SET NULL,
+    action TEXT NOT NULL,
+    detail_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_video_topics_profile_status ON video_topics(profile_id,status);
 CREATE INDEX IF NOT EXISTS idx_production_jobs_status_schedule ON production_jobs(status,production_date,scheduled_time);
+CREATE INDEX IF NOT EXISTS idx_production_exports_job ON production_exports(production_job_id,revision_id);
+CREATE INDEX IF NOT EXISTS idx_production_audit_job ON production_audit_events(production_job_id,created_at);
 
 CREATE TABLE IF NOT EXISTS oauth_states (
     state        TEXT PRIMARY KEY,

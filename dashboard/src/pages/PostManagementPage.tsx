@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, Clock3, LoaderCircle, RefreshCw } from 'lucide-react'
+import { CheckCircle2, Clock3, ExternalLink, LoaderCircle, RefreshCw, UploadCloud } from 'lucide-react'
 import { fetchAPI } from '../api/client'
 import { Button } from '../components/ui/button'
 import { Card, CardContent } from '../components/ui/card'
@@ -16,11 +16,12 @@ interface ContentItem {
   time: string
   status: string
   color: string
+  output_url?: string | null
 }
 
 const DONE = new Set(['MANUALLY_UPLOADED', 'COMPLETED', 'ARCHIVED'])
 
-function ItemRow({ item, busy, onCreate }: { item: ContentItem; busy: boolean; onCreate: (item: ContentItem) => void }) {
+function ItemRow({ item, busy, onCreate, onExport }: { item: ContentItem; busy: boolean; onCreate: (item: ContentItem) => void; onExport: (item: ContentItem) => void }) {
   return <div className="flex items-center gap-3 px-3 py-2.5 rounded border" style={{ borderColor: 'var(--border)' }}>
     <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: item.color }} />
     <div className="flex flex-col min-w-0">
@@ -28,6 +29,8 @@ function ItemRow({ item, busy, onCreate }: { item: ContentItem; busy: boolean; o
       <span className="text-[9px]" style={{ color: 'var(--muted)' }}>{item.profile_name} · {item.date} {item.time} · {item.kind === 'topic' ? 'CHƯA TẠO' : item.status}</span>
     </div>
     {item.kind === 'topic' && <Button className="ml-auto" size="xs" disabled={busy} onClick={() => onCreate(item)}>Tạo video</Button>}
+    {item.kind === 'job' && item.status === 'APPROVED' && <Button className="ml-auto" size="xs" disabled={busy} onClick={() => onExport(item)}><UploadCloud size={11}/> Xuất Drive</Button>}
+    {item.kind === 'job' && item.output_url?.startsWith('https://drive.google.com/') && <a className="ml-auto text-[10px] flex items-center gap-1" style={{ color: 'var(--accent)' }} href={item.output_url} target="_blank" rel="noreferrer"><ExternalLink size={11}/> Mở OUTPUT</a>}
   </div>
 }
 
@@ -57,6 +60,12 @@ export default function PostManagementPage() {
     catch (e) { setError(e instanceof Error ? e.message : String(e)) }
     finally { setBusy(false) }
   }
+  async function exportToDrive(item: ContentItem) {
+    setBusy(true)
+    try { await fetchAPI(`/api/production-jobs/${item.id}/export`, { method: 'POST' }); await load() }
+    catch (e) { setError(e instanceof Error ? e.message : String(e)) }
+    finally { setBusy(false) }
+  }
   const panels = [
     ['planned', 'Sẽ tạo', groups.planned, Clock3],
     ['working', 'Đang làm', groups.working, LoaderCircle],
@@ -67,7 +76,7 @@ export default function PostManagementPage() {
     {error && <div className="text-xs" style={{ color: 'var(--red)' }}>{error}</div>}
     <Tabs defaultValue="planned">
       <TabsList>{panels.map(([key,label,list]) => <TabsTrigger key={key} value={key}>{label} ({list.length})</TabsTrigger>)}</TabsList>
-      {panels.map(([key,,list,Icon]) => <TabsContent key={key} value={key}><Card className="py-4"><CardContent className="flex flex-col gap-2">{list.length ? list.map(item => <ItemRow key={`${item.kind}-${item.id}`} item={item} busy={busy} onCreate={create}/>) : <div className="py-8 text-center text-xs" style={{color:'var(--muted)'}}><Icon size={18} className="mx-auto mb-2"/>Không có video trong nhóm này.</div>}</CardContent></Card></TabsContent>)}
+      {panels.map(([key,,list,Icon]) => <TabsContent key={key} value={key}><Card className="py-4"><CardContent className="flex flex-col gap-2">{list.length ? list.map(item => <ItemRow key={`${item.kind}-${item.id}`} item={item} busy={busy} onCreate={create} onExport={exportToDrive}/>) : <div className="py-8 text-center text-xs" style={{color:'var(--muted)'}}><Icon size={18} className="mx-auto mb-2"/>Không có video trong nhóm này.</div>}</CardContent></Card></TabsContent>)}
     </Tabs>
   </div>
 }

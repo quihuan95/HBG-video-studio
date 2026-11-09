@@ -9,6 +9,9 @@ from agent.services.content_planning import (
 from agent.services.video_planning import (
     create_production_job, list_video_topics, production_calendar, sync_spreadsheet,
 )
+from agent.services.drive_output_export import (
+    DriveExportError, approve_production_job, export_production_job,
+)
 
 router = APIRouter(tags=["content-calendar"])
 
@@ -31,6 +34,10 @@ class ProductionJobCreate(BaseModel):
     video_topic_id: str
     production_date: str | None = None
     scheduled_time: str | None = None
+
+
+class ProductionJobApprove(BaseModel):
+    output_path: str | None = None
 
 
 async def _profile(profile_id: str) -> dict:
@@ -110,6 +117,46 @@ async def add_production_job(body: ProductionJobCreate):
 @router.get("/production-jobs")
 async def get_production_jobs():
     return await get_posts()
+
+
+def _export_http_error(exc: DriveExportError) -> HTTPException:
+    if exc.code in {"EXPORT_IN_PROGRESS", "EXPORT_REVISION_CONFLICT"}:
+        status = 409
+    elif exc.code in {"JOB_NOT_FOUND", "REVISION_NOT_FOUND"}:
+        status = 404
+    elif exc.code in {"JOB_NOT_APPROVED", "VIDEO_FILE_MISSING", "ASSETS_INVALID"}:
+        status = 400
+    else:
+        status = 502
+    return HTTPException(status, detail={"code": exc.code, "message": str(exc)})
+
+
+@router.post("/production-jobs/{job_id}/approve")
+async def approve_job(job_id: str, body: ProductionJobApprove):
+    try:
+        job = await approve_production_job(job_id, body.output_path)
+        exported = await export_production_job(job_id)
+        return {"job": job, "export": exported}
+    except DriveExportError as exc:
+        raise _export_http_error(exc) from exc
+    except Exception as exc:
+        raise HTTPException(502, f"Google Drive export failed: {exc}") from exc
+
+
+@router.post("/production-jobs/{job_id}/export")
+async def export_job(job_id: str):
+    try:
+        return await export_production_job(job_id)
+    except DriveExportError as exc:
+        raise _export_http_error(exc) from exc
+    except Exception as exc:
+        raise HTTPException(502, f"Google Drive export failed: {exc}") from exc
+
+
+@router.get("/production-jobs/{job_id}/exports")
+async def get_job_exports(job_id: str):
+    from agent.services.video_planning import _rows
+    return await _rows("SELECT * FROM production_exports WHERE production_job_id=? ORDER BY exported_at DESC", (job_id,))
 
 
 @router.get("/calendar")
