@@ -33,6 +33,7 @@ from agent.services.cli_providers import (
 router = APIRouter(prefix="/api/providers", tags=["providers"])
 logger = logging.getLogger(__name__)
 _PROVIDERS_FILE = Path(__file__).parent.parent / "providers.json"
+_SETTINGS_PROVIDERS = frozenset({"openai"})
 
 
 # ── Media providers (generation backends) ───────────────────────────────
@@ -147,6 +148,8 @@ async def get_providers(live: bool = False):
     data = _read()
     statuses = {}
     for name, binary in PROVIDER_BINARIES.items():
+        if name not in _SETTINGS_PROVIDERS:
+            continue
         # `muse` is the assistant itself — always available, no binary to probe.
         if name == "openai":
             installed = bool(config.OPENAI_API_KEY)

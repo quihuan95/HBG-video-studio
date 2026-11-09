@@ -747,10 +747,8 @@ class TestGetProviders:
             body = await providers_api.get_providers()
         probe.assert_not_called()
 
-        assert body["providers"]["agy"]["efforts"] == ["low", "medium", "high"]
-        assert "xhigh" in body["providers"]["claude"]["efforts"]
-        assert body["providers"]["agy"]["catalog_is_authoritative"] is True
-        assert body["providers"]["claude"]["catalog_is_authoritative"] is False
+        assert set(body["providers"]) == {"openai"}
+        assert body["providers"]["openai"]["installed"] is True
         assert body["roles"]["video_review"]["provider"] == "claude"
         assert "video_review" in body["role_meta"]
 

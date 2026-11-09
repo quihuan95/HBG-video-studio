@@ -388,7 +388,7 @@ export default function SettingsPage() {
       <Card className="py-4">
         <CardHeader>
           <CardTitle className="text-xs tracking-widest uppercase">{t('settings.providers.title')}</CardTitle>
-          <CardDescription className="text-[11px]">{t('settings.testHint')}</CardDescription>
+          <CardDescription className="text-[11px]">OpenAI API là nhà cung cấp AI duy nhất của ứng dụng.</CardDescription>
           <CardAction>
             <Button variant="outline" size="sm" disabled={testing} onClick={runTest}>
               {testing ? t('settings.testing') : t('settings.test')}
