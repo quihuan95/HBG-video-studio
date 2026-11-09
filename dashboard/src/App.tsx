@@ -98,10 +98,10 @@ function LanguageSwitcher() {
 function Sidebar() {
   const { t } = useTranslation()
   const { worker } = useWebSocketContext()
-  const [health, setHealth] = useState<{ extension_connected: boolean } | null>(null)
+  const [health, setHealth] = useState<{ status: string; flow_enabled: boolean; extension_connected: boolean } | null>(null)
 
   useEffect(() => {
-    fetchAPI<{ extension_connected: boolean }>('/health').then(setHealth).catch(() => setHealth(null))
+    fetchAPI<{ status: string; flow_enabled: boolean; extension_connected: boolean }>('/health').then(setHealth).catch(() => setHealth(null))
   }, [])
 
   return (
@@ -142,9 +142,9 @@ function Sidebar() {
         <div className="flex items-center gap-1.5 text-[10px]" style={{ color: 'var(--muted)' }}>
           <span
             className="w-1.5 h-1.5 rounded-full"
-            style={{ background: health?.extension_connected ? 'var(--green)' : 'var(--red)' }}
+            style={{ background: health?.status === 'ok' ? 'var(--green)' : 'var(--red)' }}
           />
-          {health?.extension_connected ? t('app.extensionConnected') : health ? t('app.extensionDisconnected') : t('app.extensionChecking')}
+          {health?.status === 'ok' ? 'AI footage mode' : health ? 'Backend unavailable' : t('app.extensionChecking')}
         </div>
       </div>
     </aside>

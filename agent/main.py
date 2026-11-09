@@ -12,7 +12,7 @@ from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconn
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from agent.config import API_HOST, API_PORT, WS_HOST, WS_PORT, FLOWKIT_ALLOWED_HOSTS
+from agent.config import API_HOST, API_PORT, WS_HOST, WS_PORT, FLOWKIT_ALLOWED_HOSTS, FLOW_ENABLED
 from agent.api.debug_gate import DEBUG as _DEBUG
 from agent.db.schema import init_db, close_db
 from agent.api.characters import router as characters_router
@@ -94,7 +94,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Failed to load custom materials: %s", e)
 
-    ops = init_sdk(get_flow_client())
+    ops = init_sdk(get_flow_client() if FLOW_ENABLED else None)
     logger.info("SDK initialized (OperationService ready)")
     logger.info("Flow Kit starting on %s:%d", API_HOST, API_PORT)
 
@@ -108,15 +108,16 @@ async def lifespan(app: FastAPI):
         pass
 
     # Start background tasks
-    ws_task = asyncio.create_task(run_ws_server())
+    ws_task = asyncio.create_task(run_ws_server()) if FLOW_ENABLED else None
     worker_task = asyncio.create_task(controller.start())
-    logger.info("WS server + worker started")
+    logger.info("Worker started (Flow bridge: %s)", "enabled" if FLOW_ENABLED else "disabled")
 
     yield
 
     controller.request_shutdown()
     await controller.drain()
-    ws_task.cancel()
+    if ws_task is not None:
+        ws_task.cancel()
     worker_task.cancel()
     await close_db()
     logger.info("Flow Kit stopped")
@@ -201,7 +202,8 @@ app.include_router(projects_router, prefix="/api")
 app.include_router(videos_router, prefix="/api")
 app.include_router(scenes_router, prefix="/api")
 app.include_router(requests_router, prefix="/api")
-app.include_router(flow_router, prefix="/api")
+if FLOW_ENABLED:
+    app.include_router(flow_router, prefix="/api")
 app.include_router(reviews_router, prefix="/api")
 app.include_router(tts_router, prefix="/api")
 app.include_router(materials_router, prefix="/api")
@@ -440,6 +442,7 @@ async def health():
     return {
         "status": "ok",
         "version": app.version,
+        "flow_enabled": FLOW_ENABLED,
         "extension_connected": client.connected,
         "ws": client.ws_stats,
     }

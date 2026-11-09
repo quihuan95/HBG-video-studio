@@ -1,13 +1,13 @@
-# Flow Kit — Architecture
+# HBG Video Studio — Architecture
 
 ## Overview
-Standalone system for AI video production: Chrome extension talks to Google Flow API,
-Python agent manages data locally via SQLite and orchestrates everything. An
-Electron shell hosts the React operations dashboard as a desktop application.
+Desktop system for AI-assisted footage production. Electron hosts the React
+dashboard; the Python agent manages profiles, footage metadata and jobs in
+SQLite, calls OpenAI and Google Drive/Sheets, and uses FFmpeg for media work.
 
 ## Main Components
 
-### 1. Extension (Chrome)
+### Legacy: Extension (Chrome, disabled by default)
 - Captures Google Flow bearer token (ya29.*) from aisandbox-pa.googleapis.com
 - Solves reCAPTCHA v2 (site key: 6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV)
 - Wraps ALL Google Flow API endpoints

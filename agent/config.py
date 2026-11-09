@@ -34,6 +34,9 @@ WS_PORT = int(os.environ.get("WS_PORT", "9222"))
 # labs.google tRPC endpoint, so a project is made once in the Flow UI and its
 # uuid pinned here; POST /api/projects falls back to it when no id is given.
 FLOW_PROJECT_ID = os.environ.get("FLOW_PROJECT_ID", "")
+# Legacy Google Flow browser bridge. Disabled by default in HBG Video Studio;
+# enable explicitly only when the Chrome-extension provider is needed.
+FLOW_ENABLED = os.environ.get("FLOW_ENABLED", "0") == "1"
 
 # Capabilities whose payloads were never captured off the new UI (4K upscale,
 # reference-to-video, start+end-frame chaining) fail loudly by default. With
@@ -75,7 +78,7 @@ DEFAULT_PAYGATE_TIER = os.environ.get("DEFAULT_PAYGATE_TIER", "PAYGATE_TIER_TWO"
 # "assistant" | "muse2api" | any registered provider name). MEDIA_PROVIDER is kept as a
 # legacy alias — DEFAULT_PROVIDER wins if both are set.
 DEFAULT_PROVIDER = os.environ.get(
-    "DEFAULT_PROVIDER", os.environ.get("MEDIA_PROVIDER", "flow")
+    "DEFAULT_PROVIDER", os.environ.get("MEDIA_PROVIDER", "assistant")
 ).strip().lower()
 MEDIA_PROVIDER = DEFAULT_PROVIDER  # legacy alias
 ASSISTANT_PROVIDER_TIMEOUT_S = int(os.environ.get("ASSISTANT_PROVIDER_TIMEOUT_S", "1800"))

@@ -61,7 +61,7 @@ class APIRateLimiter:
 def _request_provider_name(req: dict) -> str:
     """Provider backend for a request row (persisted per request)."""
     from agent.config import DEFAULT_PROVIDER
-    return ((req.get("provider") or DEFAULT_PROVIDER) or "").strip().lower() or "flow"
+    return ((req.get("provider") or DEFAULT_PROVIDER) or "").strip().lower() or "assistant"
 
 
 def _get_registry():

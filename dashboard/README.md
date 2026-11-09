@@ -1,6 +1,6 @@
-# Flow Kit Desktop Dashboard
+# HBG Video Studio Desktop Dashboard
 
-The dashboard is the React user interface for Flow Kit. It can run either as an
+The dashboard is the React user interface for HBG Video Studio. It can run either as an
 Electron desktop window or as a normal Vite web application. Both modes use the
 existing Python FastAPI service for project data, worker status, and pipeline
 events.
@@ -63,8 +63,8 @@ remote debugging.
 
 ## Current desktop scope
 
-Electron currently manages the local Python backend as a child process. The
-Chrome extension remains a separate component. Packaged Python/FFmpeg binaries,
+Electron currently manages the local Python backend as a child process. Google
+Flow and the Chrome extension are disabled. Packaged Python/FFmpeg binaries,
 persistent desktop settings, and a Windows installer are planned follow-up work.
 
 Repository: <https://github.com/quihuan95/HBG-video-studio>

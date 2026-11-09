@@ -8,6 +8,7 @@ import { Badge } from '../components/ui/badge'
 interface HealthResponse {
   status: string
   version: string
+  flow_enabled: boolean
   extension_connected: boolean
   ws: {
     connected: boolean
@@ -80,11 +81,11 @@ export default function GuidePage() {
             <div className="text-xs" style={{ color: 'var(--muted)' }}>{t('guide.status.checking')}</div>
           ) : (
             <div className="flex flex-wrap gap-6">
-              <div className="flex items-center gap-2">
+              {health.flow_enabled && <div className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--green)' }} />
                 <span className="text-xs" style={{ color: 'var(--text)' }}>{t('guide.status.agentRunning')}</span>
                 <Badge variant="outline">v{health.version}</Badge>
-              </div>
+              </div>}
               <div className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: health.extension_connected ? 'var(--green)' : 'var(--red)' }} />
                 <span className="text-xs" style={{ color: health.extension_connected ? 'var(--green)' : 'var(--red)' }}>
