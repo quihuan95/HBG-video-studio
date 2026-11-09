@@ -31,7 +31,7 @@ export default function ContentCalendarPage() {
   const [selectedDate, setSelectedDate] = useState(todayKey)
 
   const load = useCallback(async () => {
-    try { setItems(await fetchAPI<CalendarItem[]>('/api/production-calendar')); setError(null) }
+    try { setItems((await fetchAPI<CalendarItem[]>('/api/production-calendar')).filter(item => item.status !== 'CANCELLED')); setError(null) }
     catch (err) { setError(err instanceof Error ? err.message : String(err)) }
   }, [])
   useEffect(() => { void load() }, [load])

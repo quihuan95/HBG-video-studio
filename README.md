@@ -239,6 +239,9 @@ có ngày nằm trong danh sách **Chưa xếp lịch** và có thể gán vào 
 Production Job chưa kết thúc có nút **Hủy làm video**. Thao tác yêu cầu xác
 nhận, chuyển Job/tracker sang `CANCELLED` và ghi audit; Job đang upload Drive
 không thể bị hủy giữa chừng.
+Job đã hủy nằm trong menu con **Đã hủy**, không nằm ở **Đã hoàn thành**. Video
+Topic tương ứng quay lại **Sẽ tạo**; khi tạo lại, hệ thống mở revision mới và
+reset tracker nhưng vẫn giữ lịch sử lần chạy đã hủy.
 
 Nhấn **Đồng bộ Rule + Sheet**, sau đó mở **Lịch sản xuất**.
 Tab chưa có job có thể tạo Production Job ngay trên lịch. Mỗi job

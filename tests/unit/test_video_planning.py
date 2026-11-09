@@ -81,3 +81,27 @@ async def test_job_snapshots_tab_scenes_and_replaces_topic(test_db):
     assert progress["stage"] == "VOICE"
     assert progress["percent"] == 12
     assert progress["stages"][0]["status"] == "COMPLETED"
+
+
+@pytest.mark.asyncio
+async def test_cancelled_job_releases_topic_and_can_restart_as_new_revision(test_db):
+    profile = await crud.create_production_profile(name="HBG", rules_json="{}", color="#123456")
+    await create_rule(profile["id"], "Video rule")
+    parsed = parse_video_tab(SHEET, "Tab")
+    db = await get_db(); topic_id = "topic-restart"; now = "2026-11-09T00:00:00+00:00"
+    await db.execute("INSERT INTO video_topics(id,profile_id,spreadsheet_id,source_sheet_id,source_tab_name,title,brief,orientation,target_duration_s,status,source_hash,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,'READY',?,?,?)",
+        (topic_id, profile["id"], "spreadsheet", 99, "Tab", parsed["title"], parsed["brief"], parsed["orientation"], parsed["target_duration_s"], "hash", now, now))
+    from agent.services.video_planning import _insert_scenes
+    await _insert_scenes(db, topic_id, parsed["scenes"]); await db.commit()
+    first = await create_production_job(profile, topic_id)
+    await db.execute("UPDATE production_jobs SET status='CANCELLED' WHERE id=?", (first["id"],)); await db.commit()
+    items = await production_calendar()
+    assert {item["kind"] for item in items} == {"topic", "job"}
+    assert next(item for item in items if item["kind"] == "job")["status"] == "CANCELLED"
+
+    restarted = await create_production_job(profile, topic_id)
+    assert restarted["id"] == first["id"]
+    assert restarted["status"] == "DRAFT"
+    revisions = await (await db.execute("SELECT revision FROM production_revisions WHERE production_job_id=? ORDER BY revision", (first["id"],))).fetchall()
+    assert [row[0] for row in revisions] == [1, 2]
+    assert len(await production_calendar()) == 1

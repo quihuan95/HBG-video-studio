@@ -176,19 +176,31 @@ async def create_production_job(profile: dict, video_topic_id: str, production_d
     topics = await _rows("SELECT * FROM video_topics WHERE id=? AND profile_id=?", (video_topic_id, profile["id"]))
     if not topics: raise ValueError("Video topic not found")
     existing = await _rows("SELECT * FROM production_jobs WHERE profile_id=? AND video_topic_id=?", (profile["id"], video_topic_id))
-    if existing: return existing[0]
+    if existing and existing[0]["status"] != "CANCELLED": return existing[0]
     rule = await latest_rule(profile["id"])
     if not rule: raise ValueError("A published Video Rule is required")
     topic = topics[0]; scenes = await _rows("SELECT * FROM video_topic_scenes WHERE video_topic_id=? ORDER BY scene_order", (video_topic_id,))
+    production_date = production_date or topic.get("production_date")
+    scheduled_time = scheduled_time or topic.get("scheduled_time")
     snapshot = {"title": topic["title"], "brief": topic["brief"], "orientation": topic["orientation"],
                 "target_duration_s": topic["target_duration_s"], "production_date": production_date, "scheduled_time": scheduled_time,
                 "spreadsheet_id": topic["spreadsheet_id"], "source_sheet_id": topic["source_sheet_id"]}
-    now = _now(); job_id = _id(); revision_id = _id(); revision_hash = _hash({"snapshot": snapshot, "scenes": scenes, "rule": rule["content_hash"]})
+    now = _now(); job_id = existing[0]["id"] if existing else _id(); revision_id = _id(); revision_hash = _hash({"snapshot": snapshot, "scenes": scenes, "rule": rule["content_hash"]})
     blockers = ["voice_missing", "timeline_missing", "footage_missing", "render_missing"]
-    db = await get_db(); await db.execute("INSERT INTO production_jobs(id,profile_id,video_topic_id,title,production_date,scheduled_time,status,creation_source,current_revision_id,created_at,updated_at) VALUES(?,?,?,?,?,?,'DRAFT','manual',?,?,?)",
-        (job_id, profile["id"], video_topic_id, topic["title"], production_date, scheduled_time, revision_id, now, now))
-    await db.execute("INSERT INTO production_revisions(id,production_job_id,revision,snapshot_json,scenes_json,blockers_json,rule_version_id,rule_hash,revision_hash,created_at) VALUES(?,?,1,?,?,?,?,?,?,?)",
-        (revision_id, job_id, json.dumps(snapshot, ensure_ascii=False), json.dumps(scenes, ensure_ascii=False), json.dumps(blockers), rule["id"], rule["content_hash"], revision_hash, now))
+    db = await get_db()
+    if existing:
+        revision_number = int((await (await db.execute("SELECT COALESCE(MAX(revision),0) FROM production_revisions WHERE production_job_id=?", (job_id,))).fetchone())[0]) + 1
+        await db.execute("UPDATE production_jobs SET title=?,production_date=?,scheduled_time=?,status='DRAFT',current_revision_id=?,output_drive_file_id=NULL,output_url=NULL,error_stage=NULL,error_message=NULL,updated_at=? WHERE id=?",
+                         (topic["title"], production_date, scheduled_time, revision_id, now, job_id))
+    else:
+        revision_number = 1
+        await db.execute("INSERT INTO production_jobs(id,profile_id,video_topic_id,title,production_date,scheduled_time,status,creation_source,current_revision_id,created_at,updated_at) VALUES(?,?,?,?,?,?,'DRAFT','manual',?,?,?)",
+            (job_id, profile["id"], video_topic_id, topic["title"], production_date, scheduled_time, revision_id, now, now))
+    await db.execute("INSERT INTO production_revisions(id,production_job_id,revision,snapshot_json,scenes_json,blockers_json,rule_version_id,rule_hash,revision_hash,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
+        (revision_id, job_id, revision_number, json.dumps(snapshot, ensure_ascii=False), json.dumps(scenes, ensure_ascii=False), json.dumps(blockers), rule["id"], rule["content_hash"], revision_hash, now))
+    if existing:
+        await db.execute("INSERT INTO production_audit_events(id,production_job_id,revision_id,action,detail_json,created_at) VALUES(?,?,?,?,?,?)",
+                         (_id(), job_id, revision_id, "RESTART_PRODUCTION", json.dumps({"revision": revision_number}), now))
     await db.commit()
     from agent.services.production_progress import initialize_production_progress
     await initialize_production_progress(job_id)
@@ -197,7 +209,7 @@ async def create_production_job(profile: dict, video_topic_id: str, production_d
 
 async def production_calendar():
     topics = await list_video_topics(False); jobs = await _rows("SELECT j.*,p.name profile_name,p.color FROM production_jobs j JOIN production_profile p ON p.id=j.profile_id")
-    occupied = {j["video_topic_id"] for j in jobs if j["video_topic_id"]}
+    occupied = {j["video_topic_id"] for j in jobs if j["video_topic_id"] and j["status"] not in {"CANCELLED", "ARCHIVED"}}
     result = [{**j, "kind": "job", "topic_title": j["title"], "date": j["production_date"] or "", "time": j["scheduled_time"] or ""} for j in jobs]
     result += [{**t, "kind": "topic", "topic_id": t["id"], "topic_title": t["title"], "date": t["production_date"] or "", "time": t["scheduled_time"] or ""} for t in topics if t["id"] not in occupied]
     return sorted(result, key=lambda x: (x["date"] or "9999-99-99", x["time"] or "99:99", x["title"]))

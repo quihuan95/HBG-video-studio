@@ -44,7 +44,8 @@ interface ProductionRun {
   error?: string | null
 }
 
-const DONE = new Set(['MANUALLY_UPLOADED', 'COMPLETED', 'ARCHIVED', 'CANCELLED'])
+const DONE = new Set(['MANUALLY_UPLOADED', 'COMPLETED', 'ARCHIVED', 'READY_FOR_MANUAL_UPLOAD'])
+const TERMINAL = new Set([...DONE, 'CANCELLED'])
 
 function ItemRow({ item, busy, run, productionRun, onCreate, onExport, onClassify, onCancel }: { item: ContentItem; busy: boolean; run?: ClassificationRun; productionRun?: ProductionRun; onCreate: (item: ContentItem) => void; onExport: (item: ContentItem) => void; onClassify: (item: ContentItem) => void; onCancel: (item: ContentItem) => void }) {
   const running = run?.status === 'RUNNING'
@@ -60,7 +61,7 @@ function ItemRow({ item, busy, run, productionRun, onCreate, onExport, onClassif
       {item.kind === 'topic' && <Button size="xs" disabled={busy || running || item.footage_status !== 'READY'} title={item.footage_status === 'READY' ? 'Tạo video' : 'Phải phân loại footage thành công trước'} onClick={() => onCreate(item)}>{item.footage_status === 'READY' ? 'Tạo video' : 'Chờ footage'}</Button>}
       {item.kind === 'job' && item.status === 'APPROVED' && <Button className="ml-auto" size="xs" disabled={busy} onClick={() => onExport(item)}><UploadCloud size={11}/> Xuất Drive</Button>}
       {item.kind === 'job' && item.output_url?.startsWith('https://drive.google.com/') && <a className="ml-auto text-[10px] flex items-center gap-1" style={{ color: 'var(--accent)' }} href={item.output_url} target="_blank" rel="noreferrer"><ExternalLink size={11}/> Mở OUTPUT</a>}
-      {item.kind === 'job' && !DONE.has(item.status) && <Button className={item.status === 'APPROVED' ? '' : 'ml-auto'} size="xs" variant="destructive" disabled={busy} onClick={() => onCancel(item)}><XCircle size={11}/> Hủy làm video</Button>}
+      {item.kind === 'job' && !TERMINAL.has(item.status) && <Button className={item.status === 'APPROVED' ? '' : 'ml-auto'} size="xs" variant="destructive" disabled={busy} onClick={() => onCancel(item)}><XCircle size={11}/> Hủy làm video</Button>}
     </div>
     {run && run.status !== 'IDLE' && <div className="ml-5 flex flex-col gap-1.5">
       <div className="flex items-center gap-2 text-[10px]"><span style={{ color: run.status === 'FAILED' ? 'var(--red)' : 'var(--accent)' }}>{run.message}</span><span className="ml-auto" style={{ color: 'var(--muted)' }}>{run.total ? `${run.current}/${run.total} · ${percent}%` : run.stage}</span></div>
@@ -99,8 +100,9 @@ export default function PostManagementPage() {
   useEffect(() => { void load(); const timer = window.setInterval(() => void load(), 3000); return () => window.clearInterval(timer) }, [load])
   const groups = useMemo(() => ({
     planned: items.filter(x => x.kind === 'topic'),
-    working: items.filter(x => x.kind === 'job' && !DONE.has(x.status)),
+    working: items.filter(x => x.kind === 'job' && !TERMINAL.has(x.status)),
     done: items.filter(x => x.kind === 'job' && DONE.has(x.status)),
+    cancelled: items.filter(x => x.kind === 'job' && x.status === 'CANCELLED'),
   }), [items])
   async function create(item: ContentItem) {
     setBusy(true)
@@ -148,6 +150,7 @@ export default function PostManagementPage() {
     ['planned', 'Sẽ tạo', groups.planned, Clock3],
     ['working', 'Đang làm', groups.working, LoaderCircle],
     ['done', 'Đã hoàn thành', groups.done, CheckCircle2],
+    ['cancelled', 'Đã hủy', groups.cancelled, XCircle],
   ] as const
   return <div className="flex flex-col gap-4">
     <div className="flex items-center"><div><h1 className="m-0 text-lg font-semibold">Quản lý video</h1><p className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>Theo dõi toàn bộ video sẽ tạo, đang sản xuất và đã hoàn thành.</p></div><Button className="ml-auto" size="sm" disabled={busy} onClick={sync}><RefreshCw size={12} className={busy ? 'animate-spin' : undefined}/> Đồng bộ</Button></div>
