@@ -37,13 +37,13 @@
 - Nếu không có footage phù hợp, đánh dấu cảnh cần bổ sung thay vì dùng hình sai ngữ cảnh.
 - Subtitle phải bám sát voice, tối đa hai dòng trên màn hình.
 
-## 6. Quy tắc caption
+## 6. Quy tắc narration và kịch bản
 
-- Hook nằm ở dòng đầu tiên.
-- Mỗi đoạn tối đa 2–3 câu.
-- Chỉ dùng emoji khi phù hợp với thương hiệu; tối đa [0–3] emoji.
-- Hashtag tối đa [3–5], đặt cuối caption.
-- Không lặp lại nguyên văn toàn bộ voice-over.
+- Hook phải xuất hiện trong phần voice mở đầu.
+- Mỗi đoạn narration tối đa 2–3 câu và phải có visual intent rõ ràng.
+- Không dùng emoji hoặc hashtag trong narration.
+- Không viết chỉ dẫn dựng lẫn vào câu voice; tách chúng thành thông tin scene.
+- Kết thúc bằng một CTA ngắn nếu kịch bản yêu cầu.
 
 ## 7. Điều cấm
 
@@ -56,7 +56,7 @@
 ## 8. Kiểm tra trước khi hoàn thành
 
 - Thông tin có khớp Brand Facts không?
-- Hook và CTA có rõ ràng không?
+- Hook, mạch narration và CTA có rõ ràng không?
 - Voice, footage, subtitle có đồng bộ không?
 - Logo và chữ có nằm trong safe zone không?
 - Có câu nào phóng đại hoặc không kiểm chứng được không?

@@ -1,301 +1,293 @@
-# Logic Profile → Rule → Tạo bài → Ghi trên lịch
+# Logic Profile → Video Rule → Kịch bản → Production Job → Lịch sản xuất
 
-Tài liệu này mô tả luồng đang được triển khai trong HBG Content Studio Phase 1, từ lúc cấu hình một Content Profile, đồng bộ Rule và kế hoạch nội dung, tạo bài, cho đến khi bài xuất hiện trên Lịch nội dung và được đăng theo lịch.
+Tài liệu này mô tả đúng domain của HBG Video Studio: tạo video từ kịch bản,
+footage, voice, text, nhạc và logo; export file hoàn chỉnh rồi tải lên Google
+Drive. Đầu ra cuối cùng là file video hoàn chỉnh trong Google Drive.
 
 ## 1. Sơ đồ tổng thể
 
 ```text
-Content Profile
-  ├─ cấu hình thương hiệu, timezone, giờ mặc định, workflow
-  ├─ trỏ tới thư mục RULES trên Google Drive
-  └─ trỏ tới Google Sheet CONTENT_PLAN
-             │
-             ├───────────────┐
-             ▼               ▼
-     Đồng bộ Rule       Đồng bộ tab TOPICS
-     tạo Rule version   tạo/cập nhật Topic
-             │               │
-             └───────┬───────┘
-                     ▼
-              Chọn topic để tạo bài
-                     ▼
-       Caption → ảnh → revision → kiểm tra
-                     ▼
-          semi_auto          auto/manual
-          NEEDS_REVIEW       APPROVED/export
-                     │
-                     ▼
-                Lịch nội dung
-       ngày = content_date, giờ = scheduled_time
-                     ▼
-       Đến hạn → đăng Facebook nếu đủ trạng thái
+Production Profile
+  ├─ thương hiệu, logo, giọng đọc, ngôn ngữ, timezone
+  ├─ trỏ tới folder VIDEO_RULES trên Google Drive
+  ├─ trỏ tới folder footage local/Drive
+  ├─ trỏ tới Google Sheet VIDEO_PLAN
+  └─ trỏ tới folder Drive đầu ra
+                │
+        ┌───────┴────────┐
+        ▼                ▼
+  Đồng bộ Rule      Đồng bộ tab VIDEOS
+  tạo Rule version  tạo/cập nhật Video Topic
+        └───────┬────────┘
+                ▼
+       Tạo Production Job
+                ▼
+   phân tích kịch bản → tạo voice → lập timeline
+                ▼
+   chọn/cắt footage → nhạc → logo → subtitle
+                ▼
+       review → render → export Drive
+                ▼
+         Lịch sản xuất nội bộ
 ```
 
-## 2. Profile là cấu hình gốc
+## 2. Production Profile là cấu hình gốc
 
-Mỗi Profile đại diện cho một thương hiệu/kênh nội dung. Profile là khóa liên kết của Rule, Topic và Post qua `profile_id`.
-
-Các trường ảnh hưởng trực tiếp đến luồng:
+Mỗi Profile đại diện cho một thương hiệu hoặc một kênh video. Profile là khóa
+liên kết của Rule, Video Topic, footage và Production Job qua `profile_id`.
 
 | Trường | Vai trò |
 |---|---|
-| `name`, `brand`, `type`, `language` | Ngữ cảnh thương hiệu dùng khi sinh nội dung |
-| `timezone` | Múi giờ dùng để xác định bài đã đến giờ đăng; mặc định `Asia/Ho_Chi_Minh` |
-| `time` | Giờ đăng mặc định nếu topic không có `publish_time`; mặc định `09:00` |
-| `folder_id_rules` | Thư mục Drive chứa các file Rule |
-| `folder_id_output` | Thư mục xuất bài; đồng thời có thể suy ra thư mục `RULES` nếu chưa cấu hình `folder_id_rules` |
-| `sheet_id_topics` | Google Sheet chứa tab `TOPICS`/kế hoạch nội dung |
+| `name`, `brand`, `language`, `tone` | Ngữ cảnh thương hiệu và ngôn ngữ video |
+| `timezone` | Múi giờ của lịch sản xuất; mặc định `Asia/Ho_Chi_Minh` |
+| `default_time` | Giờ bắt đầu xử lý mặc định; mặc định `09:00` |
+| `folder_id_rules` | Folder Drive chứa bộ Video Rule |
+| `sheet_id_topics` | Sheet chứa tab `VIDEOS` hoặc `VIDEO_PLAN` |
+| `footage_sources` | Các folder footage local hoặc Google Drive |
+| `output_drive_url` | Folder Drive nhận video đã export |
 | `workflow_mode` | `manual`, `semi_auto` hoặc `auto` |
-| `active` | Chỉ Profile đang hoạt động mới được automation xử lý |
-| `color` | Màu nhận diện Profile trên Lịch nội dung |
-| `logo_data` | Logo được ghép lên ảnh AI |
-| `facebook_page_id` | Page ID hoặc link Facebook dùng khi tự động đăng |
-| `retain_removed_posts` | Khi topic bị xóa khỏi Sheet: lưu post thành `ARCHIVED` hay xóa post |
+| `logo_path`, `logo_position` | Logo và vị trí chèn vào video |
+| `voice_provider`, `voice_id` | Cấu hình giọng đọc |
+| `music_path` | Nhạc nền mặc định, nếu có |
+| `active`, `color` | Trạng thái automation và màu trên lịch |
+| `retain_removed_jobs` | Giữ job thành `ARCHIVED` khi dòng Sheet bị xóa |
 
-Điều kiện nền để chạy đầy đủ automation:
+Điều kiện để chạy production đầy đủ:
 
-1. Profile tồn tại và `active = 1`.
-2. Có nguồn Rule hợp lệ.
-3. Có `sheet_id_topics` và kết nối Google.
-4. Tab `TOPICS` có đủ dữ liệu lịch.
+1. Profile tồn tại và đang hoạt động.
+2. Có Video Rule published.
+3. Có kịch bản hợp lệ từ Sheet hoặc người dùng nhập trực tiếp.
+4. Có ít nhất một footage source đã scan.
+5. OpenAI và Google đã được cấu hình nếu workflow sử dụng chúng.
 
-## 3. Từ Profile đến Rule
+## 3. Bộ Video Rule
 
-### 3.1 Nguồn Rule
+### 3.1 Các file trong folder Rule
 
-Hệ thống tìm thư mục theo thứ tự:
+Hệ thống đọc tối đa bốn file theo đúng tên:
 
-1. `profile.folder_id_rules`.
-2. Nếu trống, thay hậu tố `/OUTPUT` trong `folder_id_output` thành `/RULES`.
+- `CONTENT_RULE.md`: mục tiêu, đối tượng, giọng điệu và nguyên tắc kịch bản.
+- `BRAND_FACTS.md`: dữ kiện thương hiệu được phép sử dụng.
+- `VIDEO_RULE.md`: quy tắc dựng, footage, voice, subtitle, logo, nhạc và export.
+- `PRODUCTION_CONFIG.json`: cấu hình máy đọc được; file tùy chọn.
 
-Trong thư mục này, hệ thống đọc tối đa ba file Markdown theo đúng tên:
-
-- `CONTENT_RULE.md`
-- `BRAND_FACTS.md`
-- `IMAGE_RULE.md`
-
-Nội dung các file hiện có được ghép theo thứ tự trên, phân cách bằng `---`. File tùy chọn `PUBLISH_CONFIG.json` được đọc vào `publish_config_json`; JSON lỗi không làm dừng việc đồng bộ Rule.
+Nội dung ba file Markdown được ghép theo thứ tự trên, phân cách bằng `---`.
 
 ### 3.2 Version và snapshot
 
-- Nếu nội dung ghép giống Rule published mới nhất: không tạo version mới.
-- Nếu nội dung thay đổi: tạo `rule_versions.version + 1`, trạng thái `published` và hash mới.
+- Nếu nội dung và production config không đổi: không tạo version mới.
+- Nếu thay đổi: tạo `rule_versions.version + 1` với hash mới.
 - Có thể tạo Rule trực tiếp qua API mà không cần Drive.
-- Khi tạo Post revision đầu tiên, hệ thống chụp `rule_version_id` và `rule_hash` vào revision.
+- Khi tạo Production Job, revision đầu tiên snapshot `rule_version_id` và
+  `rule_hash`.
+- Job cũ luôn truy vết được bộ Rule đã dùng, kể cả khi Rule mới được cập nhật.
 
-Vì vậy, Rule mới chỉ áp dụng cho lần sinh nội dung sau. Revision cũ vẫn truy vết được Rule đã dùng tại thời điểm tạo.
+## 4. Kế hoạch video trên Google Sheet
 
-## 4. Từ Profile đến kế hoạch trên Sheet
+Hệ thống đọc tab `VIDEOS!A1:Z500`. Có thể hỗ trợ alias `VIDEO_PLAN` khi tab
+`VIDEOS` không tồn tại.
 
-Hệ thống đọc vùng `TOPICS!A1:Z500` trong Google Sheet.
-
-### 4.1 Cột bắt buộc
+### 4.1 Các cột bắt buộc
 
 | Cột | Định dạng | Ý nghĩa |
 |---|---|---|
-| `topic_id` | Chuỗi, duy nhất trong Profile | Khóa nghiệp vụ liên kết Topic với Post |
-| `content_date` | `YYYY-MM-DD` hoặc `DD/MM/YYYY` | Ngày bài nằm trên lịch |
-| `publish_time` | `HH:mm` hoặc `HH:mm:ss` | Giờ dự kiến đăng |
-| `topic_title` | Chuỗi không rỗng | Chủ đề dùng để sinh bài |
+| `video_id` | Chuỗi duy nhất trong Profile | Khóa nghiệp vụ của video |
+| `production_date` | `YYYY-MM-DD` hoặc `DD/MM/YYYY` | Ngày video nằm trên lịch sản xuất |
+| `production_time` | `HH:mm` hoặc `HH:mm:ss` | Giờ dự kiến bắt đầu xử lý |
+| `title` | Chuỗi không rỗng | Tên video |
+| `script` | Văn bản hoặc link Google Docs/Sheet | Kịch bản nguồn |
 
-Cột tùy chọn đang được sử dụng: `image_rule`, `source_image_drive_link`, `image_frame_drive_link` (có hỗ trợ một số tên tiếng Việt tương đương cho hai cột link).
+### 4.2 Các cột tùy chọn
 
-### 4.2 Quy tắc đồng bộ
+| Cột | Ý nghĩa |
+|---|---|
+| `target_duration_s` | Thời lượng mục tiêu |
+| `orientation` | `VERTICAL` hoặc `HORIZONTAL` |
+| `footage_folder` | Folder footage riêng cho video |
+| `voice_id` | Ghi đè giọng đọc của Profile |
+| `music_drive_link` | Nhạc riêng cho video |
+| `notes` | Ghi chú sản xuất |
+
+### 4.3 Quy tắc đồng bộ
 
 - Dòng trống được bỏ qua.
-- Thiếu header, thiếu giá trị bắt buộc, ngày/giờ sai hoặc trùng `topic_id` làm lần sync thất bại.
-- Topic mới được insert với `status = READY`, `source_revision = 1`.
-- Topic thay đổi được cập nhật, tăng `source_revision` và ghi `source_hash` mới.
-- Topic không còn trên Sheet sẽ bị xóa khỏi bảng `topics`.
-- Post liên kết với topic bị gỡ khỏi Sheet được chuyển `ARCHIVED` nếu `retain_removed_posts = 1`; nếu không, post bị xóa.
+- Thiếu header bắt buộc, ngày/giờ sai hoặc trùng `video_id` làm sync thất bại.
+- Dòng mới tạo Video Topic trạng thái `READY`, `source_revision = 1`.
+- Dòng thay đổi tăng `source_revision` và cập nhật `source_hash`.
+- Dòng bị xóa sẽ xóa Video Topic. Production Job liên kết được chuyển
+  `ARCHIVED` nếu cấu hình giữ lại; nếu không thì xóa khi chưa render.
+- Luôn nhận diện một slot bằng `profile_id + video_id`, không dùng số dòng.
 
-Mỗi dòng Topic hợp lệ chính là một ô lịch nguồn, kể cả khi chưa tạo Post.
+## 5. Tạo Production Job
 
-## 5. Tạo bài từ Topic
+Điểm vào:
 
-Có hai điểm vào chính:
+- Thủ công: chọn Video Topic trong Quản lý video.
+- Nhập trực tiếp: tạo Job với title, script, ngày và giờ.
+- Automation: chọn các Topic đến lịch của Profile `semi_auto` hoặc `auto`.
 
-- Thủ công: `POST /api/posts` hoặc chọn một Topic trên giao diện.
-- Automation: chọn các Topic rồi gọi `POST /api/automation/run`.
+Trước khi tạo Job, Profile phải có Rule published và kịch bản không rỗng.
 
-Trước khi tạo Post, hệ thống bắt buộc Profile phải tồn tại và có Rule published mới nhất.
-
-### 5.1 Chốt ngày và giờ
-
-Automation tính lịch theo ưu tiên:
+### 5.1 Chốt lịch
 
 ```text
-content_date   = scheduleOverride.date  || topic.content_date
-scheduled_time = scheduleOverride.time  || topic.publish_time || profile.time || "09:00"
+production_date = override.date || topic.production_date || ngày hiện tại theo profile.timezone
+scheduled_time  = override.time || topic.production_time || profile.default_time || "09:00"
 ```
 
-Khi gọi API tạo Post trực tiếp, `date` và `time` được truyền vào `createPostFromTopic`; nếu thiếu ngày thì dùng ngày hiện tại, nếu thiếu giờ thì mặc định `09:00`.
+Đây là lịch bắt đầu sản xuất video.
 
-### 5.2 Post và revision đầu tiên
+### 5.2 Revision đầu tiên
 
 Hệ thống tạo:
 
-- Một dòng `posts` với `status = DRAFT`.
-- Một `post_revisions` số 1.
-- Snapshot gồm `topic_id`, `topic_title`, `content_date`, `scheduled_time`.
-- Snapshot Rule gồm `rule_version_id` và `rule_hash`.
-- Hai blocker ban đầu: caption chưa có nội dung và chưa có ảnh.
+- Một `production_jobs` trạng thái `DRAFT`.
+- Một `production_revisions` số 1.
+- Snapshot title, script, lịch, orientation và target duration.
+- Snapshot `rule_version_id` và `rule_hash`.
+- Blocker ban đầu: kịch bản rỗng, chưa có voice, timeline, footage hoặc render.
 
-Post liên kết với Topic bằng cặp `profile_id + topic_id`. `creation_source` là `manual` hoặc `automation`.
+Nếu đã có Job cho `profile_id + video_id`, hệ thống trả Job hiện có và không
+tạo trùng.
 
-### 5.3 Sinh nội dung
+## 6. Pipeline sản xuất video
 
-Luồng automation của một Topic:
+### Giai đoạn 1 — Phân tích kịch bản
 
-1. Lấy Rule published mới nhất.
-2. Sinh caption, headline, CTA và image brief bằng AI.
-3. Tạo revision mới, đổi post tạm thời sang `GENERATING`.
-4. Nếu có ảnh nguồn Drive, tạo ảnh theo từng ảnh nguồn; nếu không, lập danh sách image brief rồi tạo ảnh mới.
-5. Ghép logo Profile và khung ảnh Drive nếu có.
-6. Tạo revision mới chứa bộ ảnh.
-7. Kiểm tra lại hai blocker: caption không rỗng và có ảnh.
+OpenAI chuẩn hóa kịch bản thành danh sách scene:
 
-Mỗi lần sửa nội dung tạo một revision mới và đưa Post về `NEEDS_REVIEW`; approval cũ không còn đại diện cho revision mới.
+- `scene_order`
+- `narration_text`
+- `duration_s`
+- `visual_intent`
+- `footage_queries`
+- `on_screen_text`
+- `transition_hint`
 
-### 5.4 Chống tạo trùng và ghi đè
+Tổng thời lượng scene phải bám sát `target_duration_s` nếu được cấu hình.
 
-Nếu đã có Post cho `profile_id + topic_id`:
+### Giai đoạn 2 — Voice
 
-- `READY_FOR_MANUAL_UPLOAD` hoặc `MANUALLY_UPLOADED`: bỏ qua.
-- `NEEDS_REVIEW` trong `semi_auto`: giữ nguyên để chờ duyệt.
-- `APPROVED`: chỉ thử lại bước export Drive, không sinh lại nội dung.
-- Post do người dùng tạo (`creation_source = manual`) không bị scheduled automation sinh lại caption/ảnh.
+- Tạo voice từ `narration_text` theo thứ tự scene.
+- Đo thời lượng audio thật sau khi tạo.
+- Timeline được điều chỉnh theo voice; không cắt mất câu.
+- Lưu voice asset và metadata vào revision mới.
 
-## 6. Nhánh workflow sau khi tạo bài
+### Giai đoạn 3 — Chọn và cắt footage
 
-### `semi_auto`
+- Chỉ chọn footage đã được AI phân tích và trạng thái `READY`.
+- Match theo tag, summary, subject, action, location và usable ranges.
+- Không dùng cùng một đoạn footage lặp lại sát nhau nếu còn lựa chọn khác.
+- Nếu thiếu footage phù hợp, Job chuyển `NEEDS_INPUT` và chỉ rõ scene thiếu.
 
-Sau khi có caption và ảnh, Post chuyển sang `NEEDS_REVIEW`. Người dùng duyệt hoặc yêu cầu sửa.
+### Giai đoạn 4 — Hậu kỳ
 
-Điều kiện duyệt:
+- Cắt footage theo timeline voice.
+- Chèn nhạc với âm lượng theo Rule; voice luôn được ưu tiên.
+- Chèn logo theo Profile và safe zone.
+- Tạo subtitle từ narration/voice timing, tối đa hai dòng.
+- Chèn on-screen text nếu scene yêu cầu.
+- Render preview trước khi export bản cuối.
 
-- Caption không rỗng.
-- Có ảnh hoàn chỉnh.
+### Giai đoạn 5 — Review và export
 
-Duyệt thành công tạo bản ghi approval gắn với chính `revision_id` và `revision_hash`, sau đó Post chuyển `APPROVED`.
+- OpenAI review contact sheet hoặc frame đại diện của preview.
+- Kiểm tra khớp kịch bản, subtitle, logo, khung hình và lỗi hình ảnh.
+- `semi_auto`: chuyển `NEEDS_REVIEW`, người dùng duyệt rồi mới export.
+- `auto`: tự duyệt khi không có blocker nghiêm trọng.
+- Export MP4 và upload vào `output_drive_url`.
+- Lưu `output_drive_file_id`, URL, checksum, duration và thông số render.
 
-### `auto` và luồng automation không phải `semi_auto`
-
-Hệ thống tự duyệt, chuyển `APPROVED` và export bài lên Google Drive. Export thất bại không làm sinh lại caption/ảnh ở lần chạy tiếp theo; hệ thống chỉ retry export.
-
-### `manual`
-
-Không được cron chọn để tự sinh nội dung, nhưng người dùng vẫn có thể chọn Topic và chạy luồng tạo bài thủ công. Bài do người dùng tạo được bảo vệ khỏi việc scheduled automation ghi đè.
-
-## 7. Logic ghi và hiển thị trên Lịch nội dung
-
-Lịch không có bảng riêng. Giao diện tổng hợp dữ liệu từ:
-
-1. `GET /api/topics?all=true`: các lịch nguồn từ Sheet.
-2. `GET /api/posts`: các bài đã được tạo.
-
-Quy tắc hiển thị:
-
-- Topic chưa có Post: hiển thị theo `topic.content_date` và `topic.publish_time`; bấm vào có thể tạo bài.
-- Topic đã có Post: hiển thị Post theo `post.content_date` và `post.scheduled_time`; Topic nguồn tương ứng không hiển thị thêm lần nữa.
-- Post không gắn Topic vẫn hiển thị độc lập trên lịch.
-- Màu chấm lịch lấy từ `profile.color`.
-- Bấm một Post trên lịch mở Studio; bấm một Topic chưa có Post mở thao tác tạo bài.
-- Mục không có ngày hợp lệ được đưa vào nhóm “Lịch chưa có ngày”.
-
-Tóm lại, “ghi trên lịch” xảy ra ở hai thời điểm:
-
-```text
-Sync Sheet thành công → Topic xuất hiện trên lịch ở trạng thái chưa có bài
-Tạo Post thành công   → Post thay Topic trên cùng slot ngày/giờ
-```
-
-Ngày/giờ gốc được lưu dưới dạng local schedule (`content_date`, `scheduled_time`). Các event/audit timestamp khác được lưu ISO/UTC.
-
-## 8. Đăng bài khi đến lịch
-
-Scheduled automation xét từng Profile theo `profile.timezone`, rồi lấy các Post thỏa tất cả điều kiện:
-
-- Profile đang hoạt động và workflow là `semi_auto` hoặc `auto`.
-- Post có trạng thái `APPROVED` hoặc `READY_FOR_MANUAL_UPLOAD`.
-- Topic liên kết vẫn tồn tại, hoặc Post không gắn Topic.
-- `content_date` đã qua, hoặc đúng ngày và `scheduled_time <= giờ hiện tại`.
-
-Các Post được xử lý theo `content_date`, `scheduled_time`, `created_at`. Hệ thống đăng qua Meta Graph API, sau đó ghi nhận URL bài đăng và chuyển trạng thái bằng luồng `markManuallyUploaded` thành `MANUALLY_UPLOADED`.
-
-Lưu ý: lịch trong ứng dụng là lịch nội bộ. Hệ thống không tạo scheduled post trước trên Facebook; đến giờ, cron mới gọi Meta Graph API để đăng ngay.
-
-## 9. State flow chính
+## 7. Trạng thái Production Job
 
 ```text
 DRAFT
-  └─ bắt đầu AI ───────────────► GENERATING
-                                   │
-                         ┌─────────┴─────────┐
-                         ▼                   ▼
-                    NEEDS_REVIEW          lỗi → DRAFT
-                         │
-                 duyệt   │  yêu cầu sửa
-                         ▼       └──────────► DRAFT
-                     APPROVED
-                         │
-                  export/chuẩn bị đăng
-                         ▼
-              READY_FOR_MANUAL_UPLOAD
-                         │
-                đăng tay hoặc tự động
-                         ▼
-                MANUALLY_UPLOADED
+  └─ bắt đầu ───────────────► ANALYZING_SCRIPT
+                                 ▼
+                           GENERATING_VOICE
+                                 ▼
+                           MATCHING_FOOTAGE
+                                 ▼
+                              EDITING
+                                 ▼
+                             RENDERING
+                                 ▼
+                  ┌──────────────┴──────────────┐
+                  ▼                             ▼
+             NEEDS_REVIEW                 NEEDS_INPUT
+                  │                             │
+               duyệt                        bổ sung
+                  ▼                             └──► tiếp tục stage bị dừng
+              APPROVED
+                  ▼
+              EXPORTING
+                  ▼
+              COMPLETED
 
-Topic bị gỡ khỏi Sheet và được giữ lại → ARCHIVED
+Lỗi có thể phục hồi → FAILED, lưu stage và error để retry đúng bước.
+Topic bị xóa nhưng giữ lịch sử → ARCHIVED.
 ```
 
-## 10. API liên quan
+## 8. Lịch sản xuất
+
+Lịch tổng hợp từ Video Topic và Production Job:
+
+1. Topic chưa có Job: hiển thị theo `production_date/production_time`, cho phép
+   bấm để tạo video.
+2. Topic đã có Job: chỉ hiển thị Job; không hiển thị Topic lần thứ hai.
+3. Job nhập trực tiếp không gắn Topic vẫn hiển thị độc lập.
+4. Màu lấy từ Profile.
+5. Bấm Job mở màn hình chi tiết pipeline, asset, blocker và preview.
+6. Mục không có ngày hợp lệ nằm trong nhóm “Chưa xếp lịch”.
+
+Ba nhóm quản lý chính:
+
+- **Sẽ tạo**: Video Topic chưa có Production Job.
+- **Đang làm**: Job từ `DRAFT` đến `EXPORTING`, gồm cả `NEEDS_INPUT` và
+  `NEEDS_REVIEW`.
+- **Đã hoàn thành**: `COMPLETED` hoặc `ARCHIVED`.
+
+## 9. Automation theo timezone
+
+Scheduler xét từng Profile theo `profile.timezone` và chỉ chạy khi:
+
+- Profile `active = 1`.
+- Workflow là `semi_auto` hoặc `auto`.
+- Topic có kịch bản và lịch hợp lệ.
+- Đã đến `production_date + production_time`.
+- Chưa có Job cho `profile_id + video_id`.
+
+Job manual không bị automation ghi đè. Retry phải tiếp tục từ stage lỗi gần
+nhất thay vì tạo lại voice, footage hoặc render đã thành công.
+
+## 10. API mục tiêu
 
 | API | Mục đích |
 |---|---|
-| `POST /api/profiles` | Tạo Profile |
+| `POST /api/profiles` | Tạo Production Profile |
 | `PATCH /api/profiles/:id` | Cập nhật Profile |
-| `GET/POST /api/profiles/:id/rules` | Xem hoặc tạo Rule version |
-| `POST /api/profiles/:id/sync-sheet` | Đồng bộ Rule Drive và Topic Sheet cho một Profile |
-| `POST /api/profiles/sync-all` | Đồng bộ mọi Profile phù hợp |
-| `GET /api/topics?all=true` | Lấy nguồn lịch Topic |
-| `POST /api/automation/run` | Tạo bài từ danh sách Topic, có thể kèm override lịch |
-| `GET /api/automation/jobs/:id` | Theo dõi tiến độ job tạo bài |
-| `POST /api/automation/jobs/:id/cancel` | Yêu cầu hủy job |
-| `POST /api/posts` | Tạo Post thủ công |
-| `GET /api/posts` | Lấy các Post để hiển thị/ghép lịch |
+| `GET/POST /api/profiles/:id/rules` | Xem hoặc tạo Video Rule version |
+| `POST /api/profiles/:id/sync-sheet` | Đồng bộ Rule Drive và Sheet video |
+| `POST /api/profiles/sync-all` | Đồng bộ mọi Profile hoạt động |
+| `GET /api/video-topics?all=true` | Lấy nguồn lịch video |
+| `POST /api/production-jobs` | Tạo Job thủ công hoặc từ Topic |
+| `GET /api/production-jobs` | Lấy danh sách Job |
+| `GET /api/production-jobs/:id` | Chi tiết pipeline và revision hiện tại |
+| `POST /api/production-jobs/:id/run` | Chạy/tiếp tục pipeline |
+| `POST /api/production-jobs/:id/retry` | Retry stage lỗi |
+| `POST /api/production-jobs/:id/approve` | Duyệt revision hiện tại |
+| `GET /api/production-calendar` | Hợp nhất Topic và Job trên lịch |
 
-## 11. Ví dụ end-to-end
+## 11. Nguyên tắc bắt buộc
 
-Giả sử Profile `HBG` có timezone `Asia/Ho_Chi_Minh`, workflow `semi_auto`, màu xanh và giờ mặc định `09:00`.
-
-Sheet có dòng:
-
-```text
-topic_id:       T001
-content_date:   2026-11-12
-publish_time:   19:30
-topic_title:    5 cách tối ưu nội dung Fanpage
-```
-
-Kết quả:
-
-1. Sync tạo Topic `T001`; lịch ngày 12/11 hiển thị một chấm màu của Profile HBG lúc 19:30.
-2. Người dùng chọn Topic và chạy tạo bài.
-3. Hệ thống dùng Rule version mới nhất để sinh caption và ảnh; Post nhận `content_date = 2026-11-12`, `scheduled_time = 19:30`.
-4. Vì workflow là `semi_auto`, Post dừng ở `NEEDS_REVIEW`.
-5. Trên lịch, Post thay cho Topic nguồn; bấm vào sẽ mở Studio.
-6. Sau khi duyệt, Post thành `APPROVED`.
-7. Khi giờ địa phương của Profile đạt 19:30 ngày 12/11/2026, scheduled automation đăng bài lên Facebook và ghi nhận URL/trạng thái đã đăng.
-
-## 12. Các nguyên tắc cần giữ khi sửa code
-
-- Luôn dùng `profile_id + topic_id` để nhận diện một slot nội dung, không dùng vị trí dòng Sheet.
-- Không hiển thị đồng thời Topic và Post của cùng một slot trên lịch.
-- Không cập nhật nội dung trực tiếp lên revision cũ; luôn tạo revision mới.
-- Approval phải gắn với revision/hash cụ thể.
-- Rule phải được snapshot vào revision để bảo đảm truy vết.
-- Scheduled automation không được ghi đè Post do người dùng tạo.
-- So sánh giờ đến hạn theo timezone của Profile, không theo timezone máy chủ.
-- Topic thiếu ngày/giờ không được automation tạo bài.
+- Luôn dùng `profile_id + video_id` để nhận diện một video theo kế hoạch.
+- Không hiển thị đồng thời Topic và Job của cùng slot trên lịch.
+- Không sửa trực tiếp revision cũ; mỗi lần thay kịch bản/timeline/asset tạo
+  revision mới.
+- Approval gắn với revision ID và hash cụ thể.
+- Rule version được snapshot vào revision.
+- Automation không ghi đè Job manual.
+- So sánh lịch theo timezone Profile, không theo timezone máy chủ.
+- Không đánh dấu `COMPLETED` trước khi file render tồn tại, kiểm tra được và đã
+  upload Drive thành công.
+- Đầu ra cuối cùng là file video trên Google Drive.
