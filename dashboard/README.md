@@ -1,73 +1,75 @@
-# React + TypeScript + Vite
+# Flow Kit Desktop Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The dashboard is the React user interface for Flow Kit. It can run either as an
+Electron desktop window or as a normal Vite web application. Both modes use the
+existing Python FastAPI service for project data, worker status, and pipeline
+events.
 
-Currently, two official plugins are available:
+## Prerequisites
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Node.js 20 or newer
+- npm
+- The Flow Kit Python agent running at `http://127.0.0.1:8100`
 
-## React Compiler
+Install dependencies once:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Electron development
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Start the Python backend from the repository root:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+python -m agent.main
 ```
+
+In another terminal, start Vite and Electron together:
+
+```bash
+cd dashboard
+npm run electron:dev
+```
+
+Electron DevTools open automatically in development mode. Vite proxies `/api`,
+`/health`, and `/ws` to the Python backend.
+
+## Run the compiled desktop UI
+
+```bash
+npm run build
+npm run electron:start
+```
+
+Electron serves `dist/` from a loopback-only local server and the compiled UI
+connects directly to FastAPI on port `8100`.
+
+## Browser mode
+
+```bash
+npm run dev
+```
+
+Open `http://127.0.0.1:5173`. Browser mode is retained for development and
+remote debugging.
+
+## Commands
+
+| Command | Purpose |
+|---|---|
+| `npm run electron:dev` | Run Vite and Electron with hot reload |
+| `npm run build` | Type-check and build the React renderer |
+| `npm run electron:start` | Open Electron using the compiled renderer |
+| `npm run dev` | Run only the browser dashboard |
+| `npm run lint` | Run ESLint |
+| `npm run preview` | Preview the Vite production build in a browser |
+
+## Current desktop scope
+
+Electron currently wraps the dashboard UI only. The Python backend and Chrome
+extension remain separate processes. Automatic backend startup, packaged
+Python/FFmpeg binaries, persistent desktop settings, and a Windows installer
+are planned follow-up work.
+
+Repository: <https://github.com/quihuan95/HBG-video-studio>

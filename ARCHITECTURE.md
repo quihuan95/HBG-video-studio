@@ -2,9 +2,10 @@
 
 ## Overview
 Standalone system for AI video production: Chrome extension talks to Google Flow API,
-Python agent manages data locally via SQLite and orchestrates everything.
+Python agent manages data locally via SQLite and orchestrates everything. An
+Electron shell hosts the React operations dashboard as a desktop application.
 
-## Two Components
+## Main Components
 
 ### 1. Extension (Chrome)
 - Captures Google Flow bearer token (ya29.*) from aisandbox-pa.googleapis.com
@@ -26,9 +27,17 @@ Python agent manages data locally via SQLite and orchestrates everything.
 - Post-processing: trim, merge (ffmpeg), add music
 - Upload YouTube
 
+### 3. Desktop Dashboard (Electron + React)
+- Displays project, scene, queue, gallery, log, and settings views
+- Uses the FastAPI REST API at `127.0.0.1:8100`
+- Receives live pipeline events from `/ws/dashboard`
+- Runs through Vite during development and from `dashboard/dist/` after build
+- Does not start or package the Python backend yet
+
 ## Stack
 - Extension: Chrome Manifest V3, vanilla JS
 - Agent: Python 3.12+, FastAPI, SQLite
+- Desktop: Electron, React, TypeScript, Vite
 - Communication: WebSocket (extension ↔ agent)
 
 ---

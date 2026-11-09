@@ -3,11 +3,11 @@
   <img src="https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white" alt="Python 3.10+"/>
   <img src="https://img.shields.io/badge/Chrome-MV3-4285F4?logo=googlechrome&logoColor=white" alt="Chrome MV3"/>
   <img src="https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white" alt="FastAPI"/>
+  <img src="https://img.shields.io/badge/Electron-desktop-47848F?logo=electron&logoColor=white" alt="Electron desktop"/>
   <img src="https://img.shields.io/badge/ffmpeg-required-007808?logo=ffmpeg&logoColor=white" alt="ffmpeg"/>
   <a href="CLAUDE.md"><img src="https://img.shields.io/badge/Docs-CLAUDE.md-8A2BE2" alt="Documentation"/></a>
-  <a href="https://github.com/tuannguyenhoangit-droid/google-flow-agent/stargazers"><img src="https://img.shields.io/github/stars/tuannguyenhoangit-droid/google-flow-agent?style=flat&logo=github" alt="GitHub stars"/></a>
-  <a href="https://github.com/tuannguyenhoangit-droid/google-flow-agent/issues"><img src="https://img.shields.io/github/issues/tuannguyenhoangit-droid/google-flow-agent?logo=github" alt="GitHub issues"/></a>
-  <a href="https://deepwiki.com/tuannguyenhoangit-droid/google-flow-agent"><img src="https://img.shields.io/badge/DeepWiki-AI%20Docs-6A3BC9" alt="DeepWiki"/></a>
+  <a href="https://github.com/quihuan95/HBG-video-studio/stargazers"><img src="https://img.shields.io/github/stars/quihuan95/HBG-video-studio?style=flat&logo=github" alt="GitHub stars"/></a>
+  <a href="https://github.com/quihuan95/HBG-video-studio/issues"><img src="https://img.shields.io/github/issues/quihuan95/HBG-video-studio?logo=github" alt="GitHub issues"/></a>
 </p>
 
 ---
@@ -173,9 +173,9 @@ Each project goes through: **story → entities → reference images → scene i
 
 ---
 
-### Web Dashboard — Ops Console
+### Electron Desktop Dashboard — Ops Console
 
-A local React dashboard (`dashboard/`) for monitoring and driving the pipeline — real-time KPIs, per-video stage progress, a scene-level pipeline view with AI review, and a setup guide, all backed by the same FastAPI agent. Supports English, Vietnamese, Hindi, Indonesian, Chinese, Korean, and Japanese.
+A React + Electron desktop dashboard (`dashboard/`) for monitoring and driving the pipeline — real-time KPIs, per-video stage progress, a scene-level pipeline view with AI review, and a setup guide, all backed by the same FastAPI agent. The same UI can still run in a normal browser through Vite. Supports English, Vietnamese, Hindi, Indonesian, Chinese, Korean, and Japanese.
 
 <p align="center">
   <img src="docs/images/dashboard_overview.png" width="800" alt="Dashboard home screen with KPI cards, pipeline throughput table, needs-attention panel, and live event stream" />
@@ -254,6 +254,29 @@ curl http://127.0.0.1:8100/health
 curl http://127.0.0.1:8100/api/flow/status
 # {"connected":true,"transport":"batch","flow_project_id":"…","flow_key_present":false}
 ```
+
+### Run the Electron desktop dashboard
+
+Keep the Python agent running, then open a second terminal:
+
+```bash
+cd dashboard
+npm install
+npm run electron:dev
+```
+
+To run the compiled renderer instead of the Vite development server:
+
+```bash
+cd dashboard
+npm run build
+npm run electron:start
+```
+
+The desktop renderer connects to the local FastAPI service at
+`http://127.0.0.1:8100`. At this stage Electron does not start the Python agent
+automatically, so start `python -m agent.main` first. The browser dashboard
+remains available with `npm run dev` at `http://127.0.0.1:5173`.
 
 `flow_key_present: false` is expected — the current transport has no bearer
 token. Step 3 is not optional: Flow's project-creation endpoint went with the
