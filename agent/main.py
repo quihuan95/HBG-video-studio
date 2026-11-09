@@ -86,6 +86,10 @@ async def lifespan(app: FastAPI):
     await init_db()
 
     from agent.services.video_footage_pipeline import resume_interrupted_classifications
+    from agent.services.production_progress import ensure_production_progress
+    backfilled = await ensure_production_progress()
+    if backfilled:
+        logger.info("Initialized progress for %d existing Production Job(s)", backfilled)
     resumed = await resume_interrupted_classifications()
     if resumed:
         logger.info("Resumed %d interrupted footage classification job(s)", len(resumed))

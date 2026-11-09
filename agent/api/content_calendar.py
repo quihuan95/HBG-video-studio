@@ -159,6 +159,15 @@ async def get_production_jobs():
     return await get_posts()
 
 
+@router.get("/production-jobs/{job_id}/progress")
+async def get_job_progress(job_id: str):
+    from agent.services.production_progress import get_production_progress
+    progress = await get_production_progress(job_id)
+    if not progress:
+        raise HTTPException(404, "Production progress not found")
+    return progress
+
+
 def _export_http_error(exc: DriveExportError) -> HTTPException:
     if exc.code in {"EXPORT_IN_PROGRESS", "EXPORT_REVISION_CONFLICT"}:
         status = 409

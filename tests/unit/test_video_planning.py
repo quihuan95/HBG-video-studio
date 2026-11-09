@@ -76,3 +76,8 @@ async def test_job_snapshots_tab_scenes_and_replaces_topic(test_db):
     revision = (await db.execute("SELECT * FROM production_revisions WHERE production_job_id=?", (job["id"],)))
     row = await revision.fetchone()
     assert "voice_missing" in row["blockers_json"]
+    from agent.services.production_progress import get_production_progress
+    progress = await get_production_progress(job["id"])
+    assert progress["stage"] == "VOICE"
+    assert progress["percent"] == 12
+    assert progress["stages"][0]["status"] == "COMPLETED"

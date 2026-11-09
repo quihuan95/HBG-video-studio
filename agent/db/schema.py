@@ -378,6 +378,18 @@ CREATE TABLE IF NOT EXISTS footage_classification_runs (
     started_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS production_job_progress (
+    production_job_id TEXT PRIMARY KEY REFERENCES production_jobs(id) ON DELETE CASCADE,
+    status TEXT NOT NULL,
+    stage TEXT NOT NULL,
+    message TEXT NOT NULL,
+    percent INTEGER NOT NULL DEFAULT 0,
+    stages_json TEXT NOT NULL DEFAULT '[]',
+    logs_json TEXT NOT NULL DEFAULT '[]',
+    error TEXT,
+    started_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_video_topics_profile_status ON video_topics(profile_id,status);
 CREATE INDEX IF NOT EXISTS idx_production_jobs_status_schedule ON production_jobs(status,production_date,scheduled_time);
 CREATE INDEX IF NOT EXISTS idx_production_exports_job ON production_exports(production_job_id,revision_id);

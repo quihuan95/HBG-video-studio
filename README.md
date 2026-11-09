@@ -230,6 +230,9 @@ có, không phân tích footage lần nữa.
 Tiến độ và tối đa 100 dòng log gần nhất được lưu trong SQLite sau từng bước.
 Nếu ứng dụng tắt giữa chừng, lần khởi động sau tự khôi phục Job `ANALYZING`;
 các clip đã `READY` được giữ lại và luồng thường chỉ xử lý phần còn thiếu.
+Production Job cũng có tracker SQLite riêng cho 8 bước: kịch bản, voice, chọn
+footage, timeline, branding, phụ đề, render và Drive export. Màn hình **Đang
+làm** hiển thị phần trăm, trạng thái từng bước và log, tự cập nhật mỗi 3 giây.
 
 Nhấn **Đồng bộ Rule + Sheet**, sau đó mở **Lịch sản xuất**.
 Tab chưa có job có thể tạo Production Job ngay trên lịch. Mỗi job

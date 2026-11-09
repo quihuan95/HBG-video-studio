@@ -210,6 +210,9 @@ async def approve_production_job(job_id: str, output_path: str | None = None) ->
     await db.execute("INSERT INTO production_audit_events(id,production_job_id,revision_id,action,detail_json,created_at) VALUES(?,?,?,?,?,?)",
                      (str(uuid.uuid4()), job_id, revision_id, "APPROVE", "{}", now))
     await db.commit()
+    from agent.services.production_progress import update_production_progress
+    await update_production_progress(job_id, "RENDER", "COMPLETED",
+                                     "Video thành phẩm đã được duyệt", 88)
     return dict((await (await db.execute("SELECT * FROM production_jobs WHERE id=?", (job_id,))).fetchone()))
 
 
@@ -220,6 +223,9 @@ async def export_production_job(job_id: str) -> dict:
         _active_exports.add(job_id)
     try:
         job, revision, assets = await _load_export(job_id)
+        from agent.services.production_progress import update_production_progress
+        await update_production_progress(job_id, "DRIVE_EXPORT", "PROCESSING",
+                                         "Đang upload video và manifest lên Google Drive", 92)
         video_path = Path(assets["resolved_video_path"])
         token = await get_valid_access_token()
         async with httpx.AsyncClient(headers={"Authorization": f"Bearer {token}"}, timeout=None) as client:
@@ -274,6 +280,8 @@ async def export_production_job(job_id: str) -> dict:
         except Exception:
             await db.rollback()
             raise
+        await update_production_progress(job_id, "DRIVE_EXPORT", "COMPLETED",
+                                         "Hoàn tất upload Google Drive OUTPUT", 100)
         return {"success": True, "driveFolderId": folder_id,
                 "driveFolderUrl": f"https://drive.google.com/drive/folders/{folder_id}", "files": files}
     except Exception as exc:
@@ -284,6 +292,12 @@ async def export_production_job(job_id: str) -> dict:
             await db.commit()
         except Exception:
             await db.rollback()
+        try:
+            from agent.services.production_progress import update_production_progress
+            await update_production_progress(job_id, "DRIVE_EXPORT", "FAILED",
+                                             f"Upload Drive thất bại: {exc}", error=str(exc))
+        except Exception:
+            pass
         raise
     finally:
         async with _active_lock:

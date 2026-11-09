@@ -189,7 +189,10 @@ async def create_production_job(profile: dict, video_topic_id: str, production_d
         (job_id, profile["id"], video_topic_id, topic["title"], production_date, scheduled_time, revision_id, now, now))
     await db.execute("INSERT INTO production_revisions(id,production_job_id,revision,snapshot_json,scenes_json,blockers_json,rule_version_id,rule_hash,revision_hash,created_at) VALUES(?,?,1,?,?,?,?,?,?,?)",
         (revision_id, job_id, json.dumps(snapshot, ensure_ascii=False), json.dumps(scenes, ensure_ascii=False), json.dumps(blockers), rule["id"], rule["content_hash"], revision_hash, now))
-    await db.commit(); return (await _rows("SELECT * FROM production_jobs WHERE id=?", (job_id,)))[0]
+    await db.commit()
+    from agent.services.production_progress import initialize_production_progress
+    await initialize_production_progress(job_id)
+    return (await _rows("SELECT * FROM production_jobs WHERE id=?", (job_id,)))[0]
 
 
 async def production_calendar():
