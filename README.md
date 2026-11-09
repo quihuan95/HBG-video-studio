@@ -236,6 +236,9 @@ làm** hiển thị phần trăm, trạng thái từng bước và log, tự c�
 Trang **Lịch sản xuất** hiển thị dạng tháng. Mỗi video/job là một chấm mang màu
 của Production Profile; nhiều video trong cùng ngày tạo nhiều chấm. Video chưa
 có ngày nằm trong danh sách **Chưa xếp lịch** và có thể gán vào ngày đang chọn.
+Production Job chưa kết thúc có nút **Hủy làm video**. Thao tác yêu cầu xác
+nhận, chuyển Job/tracker sang `CANCELLED` và ghi audit; Job đang upload Drive
+không thể bị hủy giữa chừng.
 
 Nhấn **Đồng bộ Rule + Sheet**, sau đó mở **Lịch sản xuất**.
 Tab chưa có job có thể tạo Production Job ngay trên lịch. Mỗi job

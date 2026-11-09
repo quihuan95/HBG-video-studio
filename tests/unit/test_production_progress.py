@@ -3,7 +3,8 @@ import pytest
 from agent.db import crud
 from agent.db.schema import get_db
 from agent.services.production_progress import (
-    get_production_progress, initialize_production_progress, update_production_progress,
+    cancel_production_progress, get_production_progress, initialize_production_progress,
+    update_production_progress,
 )
 
 
@@ -22,3 +23,7 @@ async def test_production_progress_is_persistent_and_stage_based(test_db):
     restored = await get_production_progress("job-progress")
     assert restored["message"] == "Đang tạo voice"
     assert restored["logs"][-1]["stage"] == "VOICE"
+    cancelled = await cancel_production_progress("job-progress")
+    assert cancelled["status"] == "CANCELLED"
+    assert cancelled["stages"][1]["status"] == "CANCELLED"
+    assert cancelled["logs"][-1]["message"] == "Người dùng đã hủy làm video"

@@ -93,3 +93,15 @@ async def ensure_production_progress() -> int:
     for row in rows:
         await initialize_production_progress(row[0])
     return len(rows)
+
+
+async def cancel_production_progress(job_id: str, reason: str = "Người dùng đã hủy làm video") -> dict:
+    state = await get_production_progress(job_id) or await initialize_production_progress(job_id)
+    for item in state["stages"]:
+        if item["key"] == state["stage"] and item["status"] in {"PENDING", "PROCESSING"}:
+            item["status"] = "CANCELLED"
+    now = _now()
+    state.update({"status": "CANCELLED", "message": reason, "error": None, "updated_at": now})
+    state["logs"].append({"time": now, "stage": state["stage"], "message": reason})
+    await _save(state)
+    return state

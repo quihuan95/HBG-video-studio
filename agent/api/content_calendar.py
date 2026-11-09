@@ -1,5 +1,6 @@
 """Production profiles, video scripts, jobs, and production calendar API."""
 from datetime import datetime, timezone
+import uuid
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -185,6 +186,27 @@ async def get_job_progress(job_id: str):
     if not progress:
         raise HTTPException(404, "Production progress not found")
     return progress
+
+
+@router.post("/production-jobs/{job_id}/cancel")
+async def cancel_job(job_id: str):
+    from agent.services.drive_output_export import export_in_progress
+    from agent.services.production_progress import cancel_production_progress
+    from agent.services.video_planning import _rows
+    if export_in_progress(job_id):
+        raise HTTPException(409, "Không thể hủy khi video đang upload Google Drive")
+    jobs = await _rows("SELECT * FROM production_jobs WHERE id=?", (job_id,))
+    if not jobs: raise HTTPException(404, "Production Job not found")
+    if jobs[0]["status"] in {"COMPLETED", "READY_FOR_MANUAL_UPLOAD", "MANUALLY_UPLOADED", "ARCHIVED", "CANCELLED"}:
+        raise HTTPException(409, f"Không thể hủy Job ở trạng thái {jobs[0]['status']}")
+    now = datetime.now(timezone.utc).isoformat(); db = await get_db()
+    await db.execute("UPDATE production_jobs SET status='CANCELLED',error_stage=NULL,error_message=NULL,updated_at=? WHERE id=?",
+                     (now, job_id))
+    await db.execute("INSERT INTO production_audit_events(id,production_job_id,revision_id,action,detail_json,created_at) VALUES(?,?,?,?,?,?)",
+                     (str(uuid.uuid4()), job_id, jobs[0].get("current_revision_id"), "CANCEL_PRODUCTION", "{}", now))
+    await db.commit()
+    progress = await cancel_production_progress(job_id)
+    return {"success": True, "job_id": job_id, "status": "CANCELLED", "progress": progress}
 
 
 @router.patch("/production-jobs/{job_id}/schedule")
