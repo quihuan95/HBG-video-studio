@@ -242,6 +242,9 @@ không thể bị hủy giữa chừng.
 Job đã hủy nằm trong menu con **Đã hủy**, không nằm ở **Đã hoàn thành**. Video
 Topic tương ứng quay lại **Sẽ tạo**; khi tạo lại, hệ thống mở revision mới và
 reset tracker nhưng vẫn giữ lịch sử lần chạy đã hủy.
+Sidebar **Quản lý video** được tách thành hai menu con: **Tạo video** chỉ chứa
+hàng đợi video từ Sheet, còn **Video đã tạo** theo dõi các Job đang làm, hoàn
+thành và đã hủy. Không dùng nhiều tab trong cùng một trang.
 
 Nhấn **Đồng bộ Rule + Sheet**, sau đó mở **Lịch sản xuất**.
 Tab chưa có job có thể tạo Production Job ngay trên lịch. Mỗi job

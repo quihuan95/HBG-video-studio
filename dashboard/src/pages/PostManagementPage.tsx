@@ -3,7 +3,6 @@ import { CheckCircle2, Clock3, ExternalLink, FolderSearch2, LoaderCircle, Refres
 import { fetchAPI } from '../api/client'
 import { Button } from '../components/ui/button'
 import { Card, CardContent } from '../components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 
 interface ContentItem {
   id: string
@@ -78,7 +77,7 @@ function ItemRow({ item, busy, run, productionRun, onCreate, onExport, onClassif
   </div>
 }
 
-export default function PostManagementPage() {
+export default function PostManagementPage({ view = 'create' }: { view?: 'create' | 'created' }) {
   const [items, setItems] = useState<ContentItem[]>([])
   const [busy, setBusy] = useState(false)
   const [classificationRuns, setClassificationRuns] = useState<Record<string, ClassificationRun>>({})
@@ -146,18 +145,26 @@ export default function PostManagementPage() {
       await new Promise(resolve => window.setTimeout(resolve, 1500))
     }
   }
-  const panels = [
-    ['planned', 'Sẽ tạo', groups.planned, Clock3],
-    ['working', 'Đang làm', groups.working, LoaderCircle],
-    ['done', 'Đã hoàn thành', groups.done, CheckCircle2],
-    ['cancelled', 'Đã hủy', groups.cancelled, XCircle],
+  const createdSections = [
+    ['Đang làm', groups.working, LoaderCircle],
+    ['Đã hoàn thành', groups.done, CheckCircle2],
+    ['Đã hủy', groups.cancelled, XCircle],
   ] as const
   return <div className="flex flex-col gap-4">
-    <div className="flex items-center"><div><h1 className="m-0 text-lg font-semibold">Quản lý video</h1><p className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>Theo dõi toàn bộ video sẽ tạo, đang sản xuất và đã hoàn thành.</p></div><Button className="ml-auto" size="sm" disabled={busy} onClick={sync}><RefreshCw size={12} className={busy ? 'animate-spin' : undefined}/> Đồng bộ</Button></div>
+    <div className="flex items-center"><div><h1 className="m-0 text-lg font-semibold">{view === 'create' ? 'Tạo video' : 'Video đã tạo'}</h1><p className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>{view === 'create' ? 'Phân loại footage và bắt đầu tạo video từ kịch bản Sheet.' : 'Theo dõi video đang sản xuất, đã hoàn thành hoặc đã hủy.'}</p></div><Button className="ml-auto" size="sm" disabled={busy} onClick={sync}><RefreshCw size={12} className={busy ? 'animate-spin' : undefined}/> Đồng bộ</Button></div>
     {error && <div className="text-xs" style={{ color: 'var(--red)' }}>{error}</div>}
-    <Tabs defaultValue="planned">
-      <TabsList>{panels.map(([key,label,list]) => <TabsTrigger key={key} value={key}>{label} ({list.length})</TabsTrigger>)}</TabsList>
-      {panels.map(([key,,list,Icon]) => <TabsContent key={key} value={key}><Card className="py-4"><CardContent className="flex flex-col gap-2">{list.length ? list.map(item => <ItemRow key={`${item.kind}-${item.id}`} item={item} busy={busy} run={classificationRuns[item.id]} productionRun={productionRuns[item.id]} onCreate={create} onExport={exportToDrive} onClassify={classifyFootage} onCancel={cancelProduction}/>) : <div className="py-8 text-center text-xs" style={{color:'var(--muted)'}}><Icon size={18} className="mx-auto mb-2"/>Không có video trong nhóm này.</div>}</CardContent></Card></TabsContent>)}
-    </Tabs>
+    {view === 'create' ? <VideoSection title={`Sẽ tạo (${groups.planned.length})`} items={groups.planned} empty="Không có video đang chờ tạo." icon={Clock3} busy={busy} classificationRuns={classificationRuns} productionRuns={productionRuns} onCreate={create} onExport={exportToDrive} onClassify={classifyFootage} onCancel={cancelProduction}/> : createdSections.map(([title, list, Icon]) => <VideoSection key={title} title={`${title} (${list.length})`} items={list} empty={`Không có video trong mục ${title.toLowerCase()}.`} icon={Icon} busy={busy} classificationRuns={classificationRuns} productionRuns={productionRuns} onCreate={create} onExport={exportToDrive} onClassify={classifyFootage} onCancel={cancelProduction}/>) }
   </div>
+}
+
+function VideoSection({ title, items, empty, icon: Icon, busy, classificationRuns, productionRuns, onCreate, onExport, onClassify, onCancel }: {
+  title: string; items: ContentItem[]; empty: string; icon: typeof Clock3; busy: boolean
+  classificationRuns: Record<string, ClassificationRun>; productionRuns: Record<string, ProductionRun>
+  onCreate: (item: ContentItem) => void; onExport: (item: ContentItem) => void
+  onClassify: (item: ContentItem) => void; onCancel: (item: ContentItem) => void
+}) {
+  return <Card className="py-4"><CardContent className="flex flex-col gap-2">
+    <div className="text-[10px] font-semibold uppercase tracking-wide flex items-center gap-2 mb-1" style={{ color: 'var(--muted)' }}><Icon size={13}/>{title}</div>
+    {items.length ? items.map(item => <ItemRow key={`${item.kind}-${item.id}`} item={item} busy={busy} run={classificationRuns[item.id]} productionRun={productionRuns[item.id]} onCreate={onCreate} onExport={onExport} onClassify={onClassify} onCancel={onCancel}/>) : <div className="py-8 text-center text-xs" style={{color:'var(--muted)'}}><Icon size={18} className="mx-auto mb-2"/>{empty}</div>}
+  </CardContent></Card>
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter, HashRouter, NavLink, Routes, Route, useLocation } from 'react-router-dom'
-import { Files, ScrollText, BookOpen, SlidersHorizontal, Globe, CalendarDays, Layers } from 'lucide-react'
+import { Files, ScrollText, BookOpen, SlidersHorizontal, Globe, CalendarDays, Layers, CirclePlus, Video } from 'lucide-react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { WebSocketProvider } from './api/WebSocketContext'
 import { useWebSocketContext } from './api/useWebSocketContext'
@@ -17,7 +17,8 @@ import ContentProfilesPage from './pages/ContentProfilesPage'
 import PostManagementPage from './pages/PostManagementPage'
 
 const NAV: { to: string; icon: typeof Files; labelKey?: TranslationKey; label?: string; exact: boolean }[] = [
-  { to: '/', icon: Files, label: 'Quản lý video', exact: true },
+  { to: '/', icon: CirclePlus, label: 'Tạo video', exact: true },
+  { to: '/produced-videos', icon: Video, label: 'Video đã tạo', exact: false },
   { to: '/content-profiles', icon: Layers, label: 'Production Profiles', exact: false },
   { to: '/calendar', icon: CalendarDays, label: 'Lịch sản xuất', exact: false },
   { to: '/logs', icon: ScrollText, labelKey: 'nav.logs', exact: false },
@@ -38,7 +39,8 @@ function useBreadcrumbs() {
   const { t } = useTranslation()
   const loc = useLocation()
   const crumbs: string[] = []
-  if (loc.pathname === '/') crumbs.push('Quản lý video')
+  if (loc.pathname === '/') crumbs.push('Quản lý video', 'Tạo video')
+  else if (loc.pathname.startsWith('/produced-videos')) crumbs.push('Quản lý video', 'Video đã tạo')
   else if (loc.pathname.startsWith('/content-profiles')) crumbs.push('Production Profiles')
   else if (loc.pathname.startsWith('/calendar')) crumbs.push('Lịch sản xuất')
   else if (loc.pathname.startsWith('/logs')) crumbs.push(t('app.breadcrumb.logs'))
@@ -91,12 +93,13 @@ function Sidebar() {
       </div>
 
       <nav className="flex flex-col gap-0.5 px-2.5 py-3">
+        <div className="px-2.5 pb-1.5 text-[9px] font-semibold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>Quản lý video</div>
         {NAV.map(({ to, icon: Icon, labelKey, label, exact }) => (
           <NavLink
             key={to}
             to={to}
             end={exact}
-            className="flex items-center gap-2.5 px-2.5 py-2 rounded text-xs transition-colors hover:opacity-90"
+            className={`flex items-center gap-2.5 px-2.5 py-2 rounded text-xs transition-colors hover:opacity-90 ${to === '/' || to === '/produced-videos' ? 'ml-2' : ''}`}
             style={({ isActive }) => ({
               background: isActive ? 'var(--card)' : 'transparent',
               color: isActive ? 'var(--text)' : 'var(--muted)',
@@ -184,6 +187,7 @@ function Layout() {
         <main className="flex-1 overflow-auto p-5">
           <Routes>
             <Route path="/" element={<PostManagementPage />} />
+            <Route path="/produced-videos" element={<PostManagementPage view="created" />} />
             <Route path="/content-profiles" element={<ContentProfilesPage />} />
             <Route path="/calendar" element={<ContentCalendarPage />} />
             <Route path="/logs" element={<LogsPage />} />
