@@ -12,8 +12,10 @@ export function useWebSocket(onMessage?: (event: WSEvent) => void) {
   useEffect(() => { onMessageRef.current = onMessage }, [onMessage])
 
   const connect = useCallback(() => {
-    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const ws = new WebSocket(`${proto}//${window.location.host}/ws/dashboard`)
+    const url = import.meta.env.DEV
+      ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/dashboard`
+      : 'ws://127.0.0.1:8100/ws/dashboard'
+    const ws = new WebSocket(url)
     wsRef.current = ws
 
     ws.onopen = () => {

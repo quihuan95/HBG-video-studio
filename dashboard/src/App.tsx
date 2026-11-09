@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { BrowserRouter, NavLink, Routes, Route, useLocation, useParams, useSearchParams } from 'react-router-dom'
+import { BrowserRouter, HashRouter, NavLink, Routes, Route, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { LayoutDashboard, FolderOpen, Film, ScrollText, BookOpen, SlidersHorizontal, Globe } from 'lucide-react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { WebSocketProvider } from './api/WebSocketContext'
@@ -222,8 +222,10 @@ function Layout() {
 }
 
 export default function App() {
+  const Router = window.location.protocol === 'file:' ? HashRouter : BrowserRouter
+
   return (
-    <BrowserRouter>
+    <Router>
       <LanguageProvider>
         <WebSocketProvider>
           <TooltipProvider>
@@ -231,6 +233,6 @@ export default function App() {
           </TooltipProvider>
         </WebSocketProvider>
       </LanguageProvider>
-    </BrowserRouter>
+    </Router>
   )
 }

@@ -1,10 +1,14 @@
 {
   "name": "dashboard",
+  "productName": "Flow Kit",
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
+    "electron:dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && node electron/launch.cjs --dev\"",
+    "electron:start": "node electron/launch.cjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -30,6 +34,8 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "concurrently": "^9.2.1",
+    "electron": "^39.2.4",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
@@ -37,6 +43,7 @@
     "tailwindcss": "^4.2.2",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.57.0",
-    "vite": "^8.0.1"
+    "vite": "^8.0.1",
+    "wait-on": "^9.0.3"
   }
 }
