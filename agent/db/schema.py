@@ -78,7 +78,6 @@ CREATE TABLE IF NOT EXISTS video (
     target_duration_s REAL,   -- desired final length; concat/finalize trims to it
     resolution    TEXT,
     orientation   TEXT CHECK(orientation IN ('VERTICAL','HORIZONTAL')),
-    youtube_id    TEXT,
     privacy       TEXT NOT NULL DEFAULT 'unlisted',
     tags          TEXT,
     created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
@@ -418,6 +417,9 @@ CREATE INDEX IF NOT EXISTS idx_request_scene ON request(scene_id);
         if "target_duration_s" not in video_columns:
             await db.execute("ALTER TABLE video ADD COLUMN target_duration_s REAL")
             logger.info("Migrated: added target_duration_s column to video table")
+        if "youtube_id" in video_columns:
+            await db.execute("ALTER TABLE video DROP COLUMN youtube_id")
+            logger.info("Migrated: removed legacy youtube_id column")
         # Migration: create material table if missing
         cursor = await db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='material'")
         if not await cursor.fetchone():

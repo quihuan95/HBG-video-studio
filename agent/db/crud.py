@@ -22,7 +22,7 @@ _COLUMNS = {
     "character": {"name", "slug", "entity_type", "description", "image_prompt", "voice_description", "reference_image_url", "media_id", "updated_at"},
     "project": {"name", "description", "story", "thumbnail_url", "language", "status", "user_paygate_tier", "narrator_voice", "narrator_ref_audio", "material", "allow_music", "allow_voice", "video_model_family", "updated_at"},
     "video": {"title", "description", "display_order", "status", "orientation", "vertical_url", "horizontal_url",
-              "thumbnail_url", "duration", "target_duration_s", "resolution", "youtube_id", "privacy", "tags", "updated_at"},
+              "thumbnail_url", "duration", "target_duration_s", "resolution", "privacy", "tags", "updated_at"},
     "scene": {"prompt", "image_prompt", "video_prompt", "character_names", "parent_scene_id", "chain_type",
               "vertical_image_url", "vertical_image_media_id", "vertical_image_status",
               "vertical_video_url", "vertical_video_media_id", "vertical_video_status",

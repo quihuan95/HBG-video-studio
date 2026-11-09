@@ -1,4 +1,4 @@
-Diagnose any FlowKit error and prescribe a fix. Knows the full error taxonomy across Google Flow, the Chrome extension, the FastAPI layer, the worker, and the YouTube upload pipeline.
+Diagnose HBG Video Studio errors across FastAPI, workers, OpenAI, Drive, FFmpeg and export.
 
 ## When to use this skill
 
@@ -10,7 +10,6 @@ Diagnose any FlowKit error and prescribe a fix. Knows the full error taxonomy ac
 - User reports any error string containing: `UNSAFE_GENERATION`, `QUOTA`, `not found`, `CAPTCHA`, `UNUSUAL_ACTIVITY`, `NO_AT_TOKEN`, `NO_FLOW_PROJECT`, `UNSUPPORTED_ON_BATCH_API`, `NO_FLOW_TAB`, `FLOW_TAB_DISCARDED`, `NO_INJECTION_RESULT`, `extension_switched`, `Failed to fetch`, `MODEL_ACCESS_DENIED`, `PAYGATE_TIER_TWO`, `invalidTags`, `quotaExceeded`, `invalid_grant`
 - User asks "why did X fail", "what's wrong with the pipeline", "why is this stuck", "tại sao X lỗi", "lỗi gì vậy"
 - An HTTP 4xx/5xx reaches the main agent from any endpoint under `127.0.0.1:8100`
-- A YouTube upload returns `HttpError` from `googleapiclient`
 - `cryptography` / architecture / import errors surface during setup
 - A `/fk-review-video` run fails or returns nothing, or an error mentions `No such filter`, `Frame extraction failed`, `auto-denied`, `out of credits`, `CLI failed`, `CLI timed out`, `invalid model selection`
 
@@ -181,17 +180,6 @@ Three behaviours on this path routinely look like bugs and are not:
   a retried video request re-polls the render already running instead of paying
   for a second one.
 
-### D. YouTube upload errors (`youtube/upload.py`)
-
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `invalidTags` (400) | Tags exceed **500 chars with quote overhead** — tags with spaces count `+2` per tag | Trim to fit: `sum(len(t) + (2 if ' ' in t else 0) for t in tags) + (len(tags)-1) <= 500` |
-| `invalidCategoryId` (400) | Unknown category_id | Use `"22"` (People & Blogs) or `"24"` (Entertainment) |
-| `quotaExceeded` (403) | YT API daily 10K quota exhausted (uploads cost 1600) | Wait 24h — resets at Pacific midnight |
-| `uploadLimitExceeded` (400) | Channel daily upload cap hit | Wait 24h or use another channel |
-| `invalid_grant` (auth) | OAuth token revoked/expired | `python3 youtube/auth.py <channel>` |
-| `scheduledPublishTimeInPast` | `publishAt` <= now | Use `auto_schedule()` or bump to next day |
-
 ### E. Setup / environment errors
 
 | Error | Cause | Fix |
@@ -217,7 +205,6 @@ When the user describes a symptom in plain language, map it here first.
 | Request stuck in PROCESSING > 10 min | Check `error_message` history; if extension dropped, reload it at `chrome://extensions` |
 | "Requested entity was not found" spam | Image URLs expired — re-upload via `POST /api/upload-image` or wait for `_recover_entity_not_found` |
 | Expired signed URLs | Run `/fk-refresh-urls` — on the batch path this re-signs every stored media id through the media rpc |
-| YouTube upload `invalidTags` | Tag-char overflow — quote overhead counts (spaces → +2 per tag) |
 | Python `cryptography` arch mismatch | Use `python3.10`, not `python3.13` (x86/arm64 binary mismatch) |
 | `curl: (7) Failed to connect to 127.0.0.1:8100` | Agent not running — `python -m agent.main` |
 
@@ -301,7 +288,7 @@ Always end with a prescription block:
 === DIAGNOSIS ===
 Symptom:     <what the user observed>
 Root cause:  <what actually went wrong>
-Layer:       Flow | Extension | FastAPI | Worker | YouTube | Env
+Layer:       FastAPI | Worker | OpenAI | Drive | FFmpeg | Export | Env
 Auto-handler: <which branch of _handle_failure fires, or "none — terminal">
 
 === FIX ===

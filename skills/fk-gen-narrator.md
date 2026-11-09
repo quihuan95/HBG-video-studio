@@ -49,15 +49,15 @@ Voice consistency requires a template — without it, each scene sounds differen
 
 If templates exist, list them and ask user which to use (or default to the first one).
 
-Also check for YouTube channel voice templates:
+Also check for profile voice templates:
 ```bash
-# Check YouTube channel for voice files (preferred source for channel-specific voice)
-ls youtube/channels/*/voice_template*.wav 2>/dev/null
+# Check shared profile voice files
+ls output/_shared/tts_templates/*.wav 2>/dev/null
 # Check shared templates
 ls output/_shared/tts_templates/*.wav 2>/dev/null
 ```
 
-**Priority:** YouTube channel voice template > shared template > user-specified ref_audio.
+**Priority:** profile voice template > shared template > user-specified ref_audio.
 User can specify a template name OR a ref_audio path directly.
 
 ## Step 3: Generate narrator text for each scene

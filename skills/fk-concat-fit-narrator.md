@@ -339,7 +339,7 @@ python scripts/build_master_film.py \
 
 4. **Automated Subtitle & Hardsub Generation (`scripts/generate_subtitles.py`):**
    - Automatically computes timeline timestamps from scene durations and narrator text.
-   - Generates standard `.srt` (for YouTube CC / VLC) and `.vtt` (for web players).
+   - Generates standard `.srt` and `.vtt` subtitle files.
    - Burns hardsubs directly into frames with custom styling presets:
    ```bash
    python scripts/generate_subtitles.py \

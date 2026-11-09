@@ -65,10 +65,10 @@ Frequencies between **40Hz and 60Hz** bypass the auditory ear canal and vibrate 
 
 ---
 
-## 5. Broadcast & YouTube Mastering (EBU R128 Loudness)
+## 5. Broadcast mastering (EBU R128 Loudness)
 
-Before final distribution on YouTube (Shorts or Long-form) or streaming platforms, the master audio must comply with international broadcast loudness standards:
-- **Integrated Loudness Target:** `-14.0 LUFS` (±1 LUFS) for YouTube (prevents YouTube's automated loudness penalty compressor from squashing dynamics).
+Before final export, the master audio should comply with consistent broadcast loudness standards:
+- **Integrated Loudness Target:** `-14.0 LUFS` (±1 LUFS) unless the profile specifies another target.
 - **True Peak Ceiling:** `-1.0 dBTP` (prevents digital clipping and inter-sample distortion on mobile DACs).
 - **Loudness Range (LRA):** `7.0 to 10.0 LU` (maintains cinematic dynamic range between whispers and explosions).
 

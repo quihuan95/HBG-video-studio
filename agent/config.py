@@ -166,21 +166,8 @@ REVIEW_CLI_TIMEOUT_S = float(os.environ.get("REVIEW_CLI_TIMEOUT_S", "120"))
 
 # ─── Suno (Music Generation) — sunoapi.org ──────────────────
 def _load_suno_key() -> str:
-    """Load Suno API key: env var first, then channel_rules.json fallback."""
-    key = os.environ.get("SUNO_API_KEY", "")
-    if key:
-        return key
-    channels_dir = BASE_DIR / "youtube" / "channels"
-    if channels_dir.exists():
-        for rules_file in channels_dir.glob("*/channel_rules.json"):
-            try:
-                rules = json.loads(rules_file.read_text(encoding="utf-8"))
-                key = rules.get("api_keys", {}).get("suno", "")
-                if key:
-                    return key
-            except (json.JSONDecodeError, OSError):
-                continue
-    return ""
+    """Load the optional Suno API key from the environment."""
+    return os.environ.get("SUNO_API_KEY", "")
 
 SUNO_API_KEY = _load_suno_key()
 SUNO_BASE_URL = os.environ.get("SUNO_BASE_URL", "https://api.sunoapi.org")

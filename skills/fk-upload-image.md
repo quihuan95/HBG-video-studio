@@ -105,9 +105,9 @@ print(f'img_status={s.get(\"horizontal_image_status\")} mid={s.get(\"horizontal_
 ### Upload channel branding assets
 ```bash
 # Upload icon
-/fk-upload-image youtube/channels/<channel>/<channel>_icon.png --project <PID>
+/fk-upload-image <profile-logo.png> --project <PID>
 # Upload cover
-/fk-upload-image youtube/channels/<channel>/<channel>_cover.png --project <PID>
+/fk-upload-image <profile-cover.png> --project <PID>
 ```
 
 ### Replace a scene image with a local file

@@ -169,7 +169,7 @@ Truy cập `http://127.0.0.1:5173`.
 7. Review, sửa prompt và regenerate nếu cần
 8. Tạo narration/TTS tùy chọn
 9. Ghép clip và hậu kỳ bằng FFmpeg
-10. Tạo thumbnail, metadata và upload YouTube
+10. Export video và upload vào Google Drive đầu ra
 ```
 
 Nên gửi các tác vụ tạo media qua batch API để worker tự giới hạn concurrency:
@@ -233,7 +233,6 @@ HBG-Video-Studio/
 ├── extension/      # Legacy Flow bridge, hiện không dùng
 ├── skills/         # Workflow dành cho AI coding agents
 ├── tools/          # Review board và công cụ hỗ trợ
-├── youtube/        # OAuth và pipeline upload YouTube
 ├── docs/           # Tài liệu kỹ thuật
 └── tests/          # Unit/integration tests
 ```

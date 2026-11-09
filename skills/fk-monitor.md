@@ -412,4 +412,4 @@ Print a compact status line to console each cycle so progress is visible:
 | All videos done, no 4K | `/fk-concat` |
 | All 4K downloaded | `/fk-concat --4k` |
 | Need narration first | `/fk-gen-narrator` → `/fk-concat --with-tts` |
-| Upload to YouTube | `/fk-youtube-seo` → `/fk-youtube-upload` |
+| Upload final export | Google Drive output folder configured on the profile |

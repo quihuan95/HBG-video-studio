@@ -1,44 +1,41 @@
-# fk-brand-logo — Apply Channel Branding (Intro + Outro + Logo + 4K Badge)
+# fk-brand-logo — Apply Profile Branding (Intro + Outro + Logo)
 
-Full channel branding: prepend intro, append outro, overlay brand logo, and add 4K badge to final video.
+Apply profile branding: prepend intro, append outro, and overlay the configured logo on the final video.
 
-Usage: `/fk-brand-logo <channel_name> <video_path> [--size 220] [--thumbnails] [--no-intro] [--no-outro]`
+Usage: `/fk-brand-logo <profile_assets_dir> <video_path> [--size 220] [--no-intro] [--no-outro]`
 
-- `channel_name` — matches directory under `youtube/channels/<channel_name>/`
+- `profile_assets_dir` — directory containing the logo and optional intro/outro files
 - `video_path` — the final video to brand (e.g., `output/.../slug_narrator_cut.mp4`)
 - `--size N` — override brand logo size (default: auto-detect from resolution)
-- `--thumbnails` — also apply logo to thumbnail PNGs
 - `--no-intro` — skip intro prepend
 - `--no-outro` — skip outro append
 
-## Channel Directory Structure
+## Profile asset structure
 
 ```
-youtube/channels/<channel_name>/
-  <channel_name>_icon.png     # Brand logo (square, transparent bg)
+<profile_assets_dir>/
+  logo.png                    # Brand logo (square, transparent bg)
   4k_icon.png                 # Optional 4K badge (auto-applied for 4K videos)
   intro_4k.mp4                # 4K intro video (optional)
   intro_4k_2x.mp4             # 2x speed intro variant (optional, preferred)
   intro_1080.mp4              # 1080p intro fallback (optional)
   outro_4k.mp4                # 4K outro video (optional)
   outro_1080.mp4              # 1080p outro fallback (optional)
-  channel_info.json           # Channel metadata
+  profile.json                # Optional profile metadata
 ```
 
-Directory `youtube/channels/` is **gitignored** — local only per machine.
-
-## Step 1: Locate channel assets
+## Step 1: Locate profile assets
 
 ```bash
-CHANNEL_DIR="youtube/channels/<channel_name>"
-ICON="${CHANNEL_DIR}/<channel_name>_icon.png"
-ICON_4K="${CHANNEL_DIR}/4k_icon.png"
+PROFILE_DIR="<profile_assets_dir>"
+ICON="${PROFILE_DIR}/logo.png"
+ICON_4K="${PROFILE_DIR}/4k_icon.png"
 ```
 
 **ABORT** if icon doesn't exist:
 ```
-Icon not found: youtube/channels/<channel_name>/<channel_name>_icon.png
-Please place your channel icon PNG there first.
+Logo not found: <profile_assets_dir>/logo.png
+Configure the profile logo before rendering.
 ```
 
 ## Step 2: Auto-detect resolution and select assets

@@ -73,7 +73,7 @@ Generate video purely from character reference images — no start frame.
 
 ### T4: Parallel Orientation
 Generate same scene in both VERTICAL + HORIZONTAL for multi-platform.
-- **When:** Publishing to both YouTube Shorts (vertical) and YouTube (horizontal)
+- **When:** Exporting both vertical and horizontal deliverables
 - **How:** Create two requests per scene, one VERTICAL one HORIZONTAL
 
 ### T5: Scene Branching (explore + pick)

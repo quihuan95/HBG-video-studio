@@ -25,7 +25,7 @@ SQLite, calls OpenAI and Google Drive/Sheets, and uses FFmpeg for media work.
 - Track requests/jobs
 - Calls extension to gen image/video/upscale
 - Post-processing: trim, merge (ffmpeg), add music
-- Upload YouTube
+- Upload video thành phẩm lên Google Drive
 
 ### 3. Desktop Dashboard (Electron + React)
 - Displays project, scene, queue, gallery, log, and settings views
@@ -99,7 +99,6 @@ CREATE TABLE video (
     thumbnail_url   TEXT,
     duration        REAL,
     resolution      TEXT,
-    youtube_id      TEXT,
     privacy         TEXT DEFAULT 'unlisted',
     tags            TEXT,
     created_at      DATETIME DEFAULT (datetime('now')),

@@ -485,5 +485,4 @@ Cycle 12 / next poll in 15s...
 |---|---|
 | Mix TTS into videos | `/fk-concat --with-tts` |
 | Add branding watermark | `/fk-brand-logo` |
-| Generate YouTube SEO | `/fk-youtube-seo` |
-| Upload to YouTube | `/fk-youtube-upload` |
+| Upload final export | Google Drive output folder configured on the profile |

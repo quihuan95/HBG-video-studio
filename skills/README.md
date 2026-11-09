@@ -48,15 +48,11 @@ Workflow skills for AI agents and humans. Each skill is a step-by-step recipe.
 | `fk-import-voice` | [fk-import-voice.md](fk-import-voice.md) | Import existing voice recordings as templates |
 | `fk-gen-text-overlays` | [fk-gen-text-overlays.md](fk-gen-text-overlays.md) | Extract dates, names, casualty statistics for on-screen text overlays |
 
-## Distribution, YouTube SEO & Branding
+## Branding and export
 
 | Skill | File | Description |
 |-------|------|-------------|
 | `fk-brand-logo` | [fk-brand-logo.md](fk-brand-logo.md) | Channel intro/outro bumpers, corner watermark logo, 4K resolution badge |
-| `fk-thumbnail-guide` | [fk-thumbnail-guide.md](fk-thumbnail-guide.md) | YouTube thumbnail rules, high-CTR composition & 3-second hook principles |
-| `fk-thumbnail` | [fk-thumbnail.md](fk-thumbnail.md) | Generate 4 YouTube thumbnail variants with high-impact typography |
-| `fk-youtube-seo` | [fk-youtube-seo.md](fk-youtube-seo.md) | Generate high-converting hook titles, 3-zone descriptions, tags & AI disclosures |
-| `fk-youtube-upload` | [fk-youtube-upload.md](fk-youtube-upload.md) | Automated YouTube API video upload (Shorts & Long-form) |
 
 ## Operations, Monitoring & Provider Management
 

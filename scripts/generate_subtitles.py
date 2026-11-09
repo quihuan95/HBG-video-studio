@@ -2,7 +2,7 @@
 """
 FlowKit — Subtitle (.srt / .vtt) Generator & Hardsub Burner
 Extracts narrator text and timing from scenes or local project files to generate:
-1. SubRip (.srt) subtitle files (for YouTube captions and VLC)
+1. SubRip (.srt) subtitle files for the exported video
 2. WebVTT (.vtt) subtitle files (for web players)
 3. Hardsub Burning: Directly burns stylized, cinematic subtitles into video frames via FFmpeg.
 

@@ -48,7 +48,6 @@ def _video_to_flat(sdk_video) -> dict:
         "duration": sdk_video.duration,
         "target_duration_s": sdk_video.target_duration_s,
         "resolution": sdk_video.resolution,
-        "youtube_id": sdk_video.youtube_id,
         "privacy": sdk_video.privacy,
         "tags": sdk_video.tags,
         "created_at": sdk_video.created_at,

@@ -24,7 +24,6 @@ class VideoUpdate(BaseModel):
     duration: Optional[float] = None
     target_duration_s: Optional[float] = None
     resolution: Optional[str] = None
-    youtube_id: Optional[str] = None
     privacy: Optional[str] = None
     tags: Optional[str] = None
 
@@ -43,7 +42,6 @@ class Video(BaseModel):
     duration: Optional[float] = None
     target_duration_s: Optional[float] = None
     resolution: Optional[str] = None
-    youtube_id: Optional[str] = None
     privacy: str = "unlisted"
     tags: Optional[str] = None
     created_at: Optional[str] = None

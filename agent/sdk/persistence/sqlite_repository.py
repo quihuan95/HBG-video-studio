@@ -73,7 +73,6 @@ class SQLiteRepository(Repository):
             duration=row.get("duration"),
             target_duration_s=row.get("target_duration_s"),
             resolution=row.get("resolution"),
-            youtube_id=row.get("youtube_id"),
             privacy=row.get("privacy", "unlisted"),
             tags=row.get("tags"),
             created_at=row.get("created_at"),
@@ -309,7 +308,6 @@ class SQLiteRepository(Repository):
             duration=video.duration,
             target_duration_s=video.target_duration_s,
             resolution=video.resolution,
-            youtube_id=video.youtube_id,
             privacy=video.privacy,
             tags=video.tags,
         )
