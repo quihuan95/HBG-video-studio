@@ -1,14 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
-import { RefreshCw, Globe } from 'lucide-react'
+import { Globe } from 'lucide-react'
 import { LANGS, LANG_LABELS, type Lang } from '../i18n/translations'
 import { fetchAPI, patchAPI } from '../api/client'
 import { useTranslation } from '../i18n/useTranslation'
-import type { RoleAssignment, ProvidersResponse, ProviderModelsResponse, ProvidersUpdateResponse } from '../types'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardAction } from '../components/ui/card'
 import { Button } from '../components/ui/button'
-
-const DEFAULT_OPTION = '__default__'
-const CUSTOM_OPTION = '__custom__'
 
 const CONTROL_CLASS = 'text-xs px-2 py-1.5 rounded outline-none w-full'
 const CONTROL_STYLE = { background: 'var(--card)', color: 'var(--text)', border: '1px solid var(--border)' }
@@ -47,27 +43,8 @@ function apiDetail(err: unknown): string {
   return raw
 }
 
-function cloneRoles(roles: Record<string, RoleAssignment>): Record<string, RoleAssignment> {
-  return Object.fromEntries(Object.entries(roles).map(([id, r]) => [id, { ...r }]))
-}
-
-function sameAssignment(a: RoleAssignment, b: RoleAssignment): boolean {
-  return a.provider === b.provider && a.model === b.model && a.effort === b.effort
-}
-
 export default function SettingsPage() {
   const { lang, setLang, t } = useTranslation()
-  const [data, setData] = useState<ProvidersResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [drafts, setDrafts] = useState<Record<string, RoleAssignment>>({})
-  const [models, setModels] = useState<Record<string, ProviderModelsResponse>>({})
-  const [modelsLoading, setModelsLoading] = useState<Record<string, boolean>>({})
-  const [customModel, setCustomModel] = useState<Record<string, boolean>>({})
-  const [saving, setSaving] = useState<Record<string, boolean>>({})
-  const [saveState, setSaveState] = useState<Record<string, SaveState>>({})
-  const [testing, setTesting] = useState(false)
-  const [testError, setTestError] = useState<string | null>(null)
   const [google, setGoogle] = useState<GoogleConnection | null>(null)
   const [googleBusy, setGoogleBusy] = useState(false)
   const [googleError, setGoogleError] = useState<string | null>(null)
@@ -148,125 +125,6 @@ export default function SettingsPage() {
       setGoogleBusy(false)
     }
   }
-
-  const loadModels = useCallback(async (provider: string, refresh: boolean) => {
-    setModelsLoading(prev => ({ ...prev, [provider]: true }))
-    try {
-      const res = await fetchAPI<ProviderModelsResponse>(
-        `/api/providers/models?provider=${encodeURIComponent(provider)}&refresh=${refresh}`
-      )
-      setModels(prev => ({ ...prev, [provider]: res }))
-    } catch {
-      // an unreachable catalog is not fatal — render it as "no catalog available"
-      setModels(prev => ({ ...prev, [provider]: { provider, models: [], authoritative: false } }))
-    } finally {
-      setModelsLoading(prev => ({ ...prev, [provider]: false }))
-    }
-  }, [])
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    setLoadError(null)
-    try {
-      const res = await fetchAPI<ProvidersResponse>('/api/providers?live=false')
-      setData(res)
-      setDrafts(cloneRoles(res.roles))
-      setCustomModel({})
-      setSaveState({})
-      Array.from(new Set(Object.values(res.roles).map(r => r.provider))).forEach(p => { loadModels(p, false) })
-    } catch (err) {
-      setData(null)
-      setLoadError(apiDetail(err))
-    } finally {
-      setLoading(false)
-    }
-  }, [loadModels])
-
-  useEffect(() => { Promise.resolve().then(load) }, [load])
-
-  function updateDraft(roleId: string, patch: Partial<RoleAssignment>) {
-    setDrafts(prev => ({ ...prev, [roleId]: { ...prev[roleId], ...patch } }))
-    setSaveState(prev => {
-      if (!(roleId in prev)) return prev
-      const next = { ...prev }
-      delete next[roleId]
-      return next
-    })
-  }
-
-  function changeProvider(roleId: string, provider: string) {
-    // a model slug from one CLI means nothing to another, and effort ladders differ per provider
-    const efforts = data?.providers[provider]?.efforts ?? []
-    const current = drafts[roleId]
-    const effort = current.effort !== null && efforts.includes(current.effort) ? current.effort : null
-    updateDraft(roleId, { provider, model: null, effort })
-    setCustomModel(prev => ({ ...prev, [roleId]: false }))
-    if (!models[provider] && !modelsLoading[provider]) loadModels(provider, false)
-  }
-
-  function setModel(roleId: string, model: string | null) {
-    // a provider whose slugs name their own effort rejects --model and --effort together
-    const encodesEffort = data?.providers[drafts[roleId].provider]?.model_encodes_effort ?? false
-    updateDraft(roleId, model !== null && encodesEffort ? { model, effort: null } : { model })
-  }
-
-  function selectModel(roleId: string, value: string) {
-    if (value === CUSTOM_OPTION) {
-      setCustomModel(prev => ({ ...prev, [roleId]: true }))
-      setModel(roleId, null)
-      return
-    }
-    setModel(roleId, value === DEFAULT_OPTION ? null : value)
-  }
-
-  async function save(roleId: string) {
-    const draft = drafts[roleId]
-    const model = draft.model !== null && draft.model.trim() !== '' ? draft.model.trim() : null
-    const encodesEffort = data?.providers[draft.provider]?.model_encodes_effort ?? false
-    const effort = model !== null && encodesEffort ? null : draft.effort
-    setSaving(prev => ({ ...prev, [roleId]: true }))
-    try {
-      const res = await patchAPI<ProvidersUpdateResponse>('/api/providers', {
-        roles: { [roleId]: { provider: draft.provider, model, effort } },
-      })
-      setData(prev => (prev ? { ...prev, active: res.active, roles: res.roles } : prev))
-      setDrafts(prev => ({ ...prev, [roleId]: { ...(res.roles[roleId] ?? prev[roleId]) } }))
-      setSaveState(prev => ({ ...prev, [roleId]: { ok: true, text: t('settings.saved') } }))
-    } catch (err) {
-      setSaveState(prev => ({ ...prev, [roleId]: { ok: false, text: apiDetail(err) } }))
-    } finally {
-      setSaving(prev => ({ ...prev, [roleId]: false }))
-    }
-  }
-
-  async function runTest() {
-    setTesting(true)
-    setTestError(null)
-    try {
-      const res = await fetchAPI<ProvidersResponse>('/api/providers?live=true')
-      setData(prev => (prev ? { ...prev, providers: res.providers } : res))
-    } catch (err) {
-      setTestError(apiDetail(err))
-    } finally {
-      setTesting(false)
-    }
-  }
-
-  if (loading) {
-    return <div className="text-xs" style={{ color: 'var(--muted)' }}>{t('settings.loading')}</div>
-  }
-
-  if (!data) {
-    return (
-      <div className="flex flex-col items-start gap-2.5">
-        <span className="text-xs" style={{ color: 'var(--red)' }}>{loadError ?? t('settings.loadFailed')}</span>
-        <Button variant="outline" size="sm" onClick={() => { Promise.resolve().then(load) }}>{t('settings.retry')}</Button>
-      </div>
-    )
-  }
-
-  const providers = data.providers
-  const roleIds = Object.keys(data.roles)
 
   return (
     <div className="flex flex-col gap-4">
@@ -385,6 +243,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* Legacy provider selector removed: OpenAI is configured in the card above.
       <Card className="py-4">
         <CardHeader>
           <CardTitle className="text-xs tracking-widest uppercase">{t('settings.providers.title')}</CardTitle>
@@ -560,7 +419,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         )
-      })}
+      })} */}
     </div>
   )
 }
