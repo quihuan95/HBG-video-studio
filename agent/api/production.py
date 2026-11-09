@@ -18,6 +18,8 @@ router = APIRouter(tags=["production"])
 def _profile(row: dict) -> ProductionProfile:
     data = dict(row)
     data["rules"] = json.loads(data.pop("rules_json") or "{}")
+    data["active"] = bool(data.get("active", 1))
+    data["retain_removed_posts"] = bool(data.get("retain_removed_posts", 1))
     return ProductionProfile.model_validate(data)
 
 
@@ -43,6 +45,8 @@ def _asset(row: dict) -> FootageAsset:
 async def create_profile(body: ProductionProfileCreate):
     data = body.model_dump(exclude={"rules"})
     data["rules_json"] = body.rules.model_dump_json()
+    data["active"] = int(body.active)
+    data["retain_removed_posts"] = int(body.retain_removed_posts)
     return _profile(await crud.create_production_profile(**data))
 
 
@@ -64,6 +68,9 @@ async def update_profile(profile_id: str, body: ProductionProfileUpdate):
     if not await crud.get_production_profile(profile_id):
         raise HTTPException(404, "Production profile not found")
     data = body.model_dump(exclude_unset=True, exclude={"rules"})
+    for key in ("active", "retain_removed_posts"):
+        if key in data:
+            data[key] = int(data[key])
     if body.rules is not None:
         data["rules_json"] = body.rules.model_dump_json()
     return _profile(await crud.update_production_profile(profile_id, **data))

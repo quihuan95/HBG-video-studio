@@ -231,6 +231,42 @@ CREATE INDEX IF NOT EXISTS idx_footage_asset_profile ON footage_asset(profile_id
 CREATE INDEX IF NOT EXISTS idx_footage_asset_source ON footage_asset(source_id);
 CREATE INDEX IF NOT EXISTS idx_footage_asset_status ON footage_asset(status);
 
+CREATE TABLE IF NOT EXISTS rule_versions (
+    id TEXT PRIMARY KEY, profile_id TEXT NOT NULL REFERENCES production_profile(id) ON DELETE CASCADE,
+    version INTEGER NOT NULL, content TEXT NOT NULL, content_hash TEXT NOT NULL,
+    publish_config_json TEXT NOT NULL DEFAULT '{}', status TEXT NOT NULL DEFAULT 'published',
+    created_at TEXT NOT NULL, UNIQUE(profile_id, version)
+);
+CREATE TABLE IF NOT EXISTS topics (
+    id TEXT PRIMARY KEY, profile_id TEXT NOT NULL REFERENCES production_profile(id) ON DELETE CASCADE,
+    topic_id TEXT NOT NULL, topic_title TEXT NOT NULL, content_date TEXT NOT NULL,
+    publish_time TEXT NOT NULL, image_rule TEXT, source_image_drive_link TEXT,
+    image_frame_drive_link TEXT, status TEXT NOT NULL DEFAULT 'READY', source_revision INTEGER NOT NULL DEFAULT 1,
+    source_hash TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+    UNIQUE(profile_id, topic_id)
+);
+CREATE TABLE IF NOT EXISTS posts (
+    id TEXT PRIMARY KEY, profile_id TEXT NOT NULL REFERENCES production_profile(id) ON DELETE CASCADE,
+    topic_id TEXT, topic_title TEXT, content_date TEXT NOT NULL, scheduled_time TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'DRAFT', creation_source TEXT NOT NULL DEFAULT 'manual',
+    current_revision_id TEXT, published_url TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+    UNIQUE(profile_id, topic_id)
+);
+CREATE TABLE IF NOT EXISTS post_revisions (
+    id TEXT PRIMARY KEY, post_id TEXT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    revision INTEGER NOT NULL, caption TEXT NOT NULL DEFAULT '', headline TEXT NOT NULL DEFAULT '',
+    cta TEXT NOT NULL DEFAULT '', image_brief TEXT NOT NULL DEFAULT '', images_json TEXT NOT NULL DEFAULT '[]',
+    blockers_json TEXT NOT NULL DEFAULT '[]', rule_version_id TEXT REFERENCES rule_versions(id),
+    rule_hash TEXT, revision_hash TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE(post_id, revision)
+);
+CREATE TABLE IF NOT EXISTS post_approvals (
+    id TEXT PRIMARY KEY, post_id TEXT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    revision_id TEXT NOT NULL REFERENCES post_revisions(id), revision_hash TEXT NOT NULL,
+    approved_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_topics_profile_date ON topics(profile_id, content_date);
+CREATE INDEX IF NOT EXISTS idx_posts_profile_date ON posts(profile_id, content_date, scheduled_time);
+
 CREATE TABLE IF NOT EXISTS oauth_states (
     state        TEXT PRIMARY KEY,
     user_id      TEXT NOT NULL,
@@ -447,6 +483,18 @@ CREATE INDEX IF NOT EXISTS idx_request_scene ON request(scene_id);
         if "youtube_id" in video_columns:
             await db.execute("ALTER TABLE video DROP COLUMN youtube_id")
             logger.info("Migrated: removed legacy youtube_id column")
+        cursor = await db.execute("PRAGMA table_info(production_profile)")
+        profile_columns = {row[1] for row in await cursor.fetchall()}
+        profile_additions = {
+            "brand": "TEXT", "profile_type": "TEXT", "timezone": "TEXT NOT NULL DEFAULT 'Asia/Ho_Chi_Minh'",
+            "default_time": "TEXT NOT NULL DEFAULT '09:00'", "folder_id_rules": "TEXT",
+            "folder_id_output": "TEXT", "sheet_id_topics": "TEXT", "workflow_mode": "TEXT NOT NULL DEFAULT 'manual'",
+            "active": "INTEGER NOT NULL DEFAULT 1", "color": "TEXT NOT NULL DEFAULT '#22c55e'",
+            "logo_data": "TEXT", "facebook_page_id": "TEXT", "retain_removed_posts": "INTEGER NOT NULL DEFAULT 1",
+        }
+        for name, definition in profile_additions.items():
+            if name not in profile_columns:
+                await db.execute(f"ALTER TABLE production_profile ADD COLUMN {name} {definition}")
         # Migration: create material table if missing
         cursor = await db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='material'")
         if not await cursor.fetchone():

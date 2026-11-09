@@ -28,6 +28,19 @@ class ProductionProfileCreate(BaseModel):
     music_path: str | None = None
     sheet_url: str | None = None
     output_drive_url: str | None = None
+    brand: str | None = None
+    profile_type: str | None = None
+    timezone: str = "Asia/Ho_Chi_Minh"
+    default_time: str = "09:00"
+    folder_id_rules: str | None = None
+    folder_id_output: str | None = None
+    sheet_id_topics: str | None = None
+    workflow_mode: Literal["manual", "semi_auto", "auto"] = "manual"
+    active: bool = True
+    color: str = "#22c55e"
+    logo_data: str | None = None
+    facebook_page_id: str | None = None
+    retain_removed_posts: bool = True
 
 
 class ProductionProfileUpdate(BaseModel):
@@ -44,6 +57,19 @@ class ProductionProfileUpdate(BaseModel):
     sheet_url: str | None = None
     output_drive_url: str | None = None
     status: Literal["ACTIVE", "ARCHIVED"] | None = None
+    brand: str | None = None
+    profile_type: str | None = None
+    timezone: str | None = None
+    default_time: str | None = None
+    folder_id_rules: str | None = None
+    folder_id_output: str | None = None
+    sheet_id_topics: str | None = None
+    workflow_mode: Literal["manual", "semi_auto", "auto"] | None = None
+    active: bool | None = None
+    color: str | None = None
+    logo_data: str | None = None
+    facebook_page_id: str | None = None
+    retain_removed_posts: bool | None = None
 
 
 class ProductionProfile(ProductionProfileCreate):

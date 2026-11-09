@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter, HashRouter, NavLink, Routes, Route, useLocation, useParams, useSearchParams } from 'react-router-dom'
-import { LayoutDashboard, FolderOpen, Film, ScrollText, BookOpen, SlidersHorizontal, Globe } from 'lucide-react'
+import { LayoutDashboard, FolderOpen, Film, ScrollText, BookOpen, SlidersHorizontal, Globe, CalendarDays, Layers } from 'lucide-react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { WebSocketProvider } from './api/WebSocketContext'
 import { useWebSocketContext } from './api/useWebSocketContext'
@@ -16,11 +16,15 @@ import LogsPage from './pages/LogsPage'
 import GalleryPage from './pages/GalleryPage'
 import GuidePage from './pages/GuidePage'
 import SettingsPage from './pages/SettingsPage'
+import ContentCalendarPage from './pages/ContentCalendarPage'
+import ContentProfilesPage from './pages/ContentProfilesPage'
 
-const NAV: { to: string; icon: typeof LayoutDashboard; labelKey: TranslationKey; exact: boolean }[] = [
+const NAV: { to: string; icon: typeof LayoutDashboard; labelKey?: TranslationKey; label?: string; exact: boolean }[] = [
   { to: '/', icon: LayoutDashboard, labelKey: 'nav.dashboard', exact: true },
   { to: '/projects', icon: FolderOpen, labelKey: 'nav.projects', exact: false },
+  { to: '/content-profiles', icon: Layers, label: 'Content Profiles', exact: false },
   { to: '/gallery', icon: Film, labelKey: 'nav.gallery', exact: false },
+  { to: '/calendar', icon: CalendarDays, label: 'Lịch nội dung', exact: false },
   { to: '/logs', icon: ScrollText, labelKey: 'nav.logs', exact: false },
   { to: '/guide', icon: BookOpen, labelKey: 'nav.guide', exact: false },
   { to: '/settings', icon: SlidersHorizontal, labelKey: 'nav.settings', exact: false },
@@ -115,7 +119,7 @@ function Sidebar() {
       </div>
 
       <nav className="flex flex-col gap-0.5 px-2.5 py-3">
-        {NAV.map(({ to, icon: Icon, labelKey, exact }) => (
+        {NAV.map(({ to, icon: Icon, labelKey, label, exact }) => (
           <NavLink
             key={to}
             to={to}
@@ -128,7 +132,7 @@ function Sidebar() {
             })}
           >
             <Icon size={13} />
-            {t(labelKey)}
+            {labelKey ? t(labelKey) : label}
           </NavLink>
         ))}
       </nav>
@@ -210,7 +214,9 @@ function Layout() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/:id" element={<ProjectsPage />} />
+            <Route path="/content-profiles" element={<ContentProfilesPage />} />
             <Route path="/gallery" element={<GalleryPage />} />
+            <Route path="/calendar" element={<ContentCalendarPage />} />
             <Route path="/logs" element={<LogsPage />} />
             <Route path="/guide" element={<GuidePage />} />
             <Route path="/settings" element={<SettingsPage />} />

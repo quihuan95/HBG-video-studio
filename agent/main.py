@@ -32,6 +32,7 @@ from agent.api.active_project import router as active_project_router
 from agent.api.production import router as production_router
 from agent.api.google_oauth import router as google_oauth_router
 from agent.api.openai_settings import router as openai_settings_router
+from agent.api.content_calendar import router as content_calendar_router
 from agent.worker.processor import get_worker_controller
 from agent.services.flow_client import get_flow_client
 from agent.services.event_bus import event_bus
@@ -226,6 +227,7 @@ app.include_router(active_project_router)
 app.include_router(production_router, prefix="/api")
 app.include_router(google_oauth_router, prefix="/api")
 app.include_router(openai_settings_router, prefix="/api")
+app.include_router(content_calendar_router, prefix="/api")
 
 
 _CALLBACK_SECRET = secrets.token_urlsafe(32)
