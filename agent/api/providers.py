@@ -125,6 +125,18 @@ async def _probe_version(binary: str) -> tuple:
         return False, str(e)
 
 
+async def _probe_openai() -> tuple:
+    if not config.OPENAI_API_KEY:
+        return False, "OPENAI_API_KEY is not configured"
+    try:
+        from openai import AsyncOpenAI
+        client = AsyncOpenAI(api_key=config.OPENAI_API_KEY)
+        await asyncio.wait_for(client.models.list(), timeout=15)
+        return True, None
+    except Exception as exc:
+        return False, str(exc)[:200]
+
+
 @router.get("")
 async def get_providers(live: bool = False):
     """Provider status plus the per-role configuration.
@@ -136,10 +148,14 @@ async def get_providers(live: bool = False):
     statuses = {}
     for name, binary in PROVIDER_BINARIES.items():
         # `muse` is the assistant itself — always available, no binary to probe.
-        installed = True if binary is None else shutil.which(binary) is not None
-        tested, error = (await _probe_version(binary)) if (live and installed and binary) else (None, None)
+        if name == "openai":
+            installed = bool(config.OPENAI_API_KEY)
+            tested, error = (await _probe_openai()) if live else (None, None)
+        else:
+            installed = True if binary is None else shutil.which(binary) is not None
+            tested, error = (await _probe_version(binary)) if (live and installed and binary) else (None, None)
         statuses[name] = {
-            "binary": binary,
+            "binary": "OpenAI API" if name == "openai" else binary,
             "installed": installed,
             "tested": tested,
             "error": error,
@@ -206,9 +222,11 @@ async def patch_providers(body: dict):
         provider = body["active"]
         if provider not in PROVIDER_BINARIES:
             raise HTTPException(400, f"Unknown provider '{provider}'. Known: {list(PROVIDER_BINARIES)}")
-        if PROVIDER_BINARIES[provider] is None:
+        if provider == "openai" and not config.OPENAI_API_KEY:
+            raise HTTPException(400, "OPENAI_API_KEY is not configured")
+        if PROVIDER_BINARIES[provider] is None and provider != "openai":
             raise HTTPException(400, f"'{provider}' has no CLI binary — it is only valid as a per-role provider, not as the active default")
-        if not shutil.which(PROVIDER_BINARIES[provider]):
+        if PROVIDER_BINARIES[provider] is not None and not shutil.which(PROVIDER_BINARIES[provider]):
             raise HTTPException(400, f"'{PROVIDER_BINARIES[provider]}' binary not found on PATH — install it first")
         data["active"] = provider
         # Switching the whole agent over has to carry the roles with it.

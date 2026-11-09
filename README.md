@@ -82,6 +82,7 @@ OPENAI_API_KEY=sk-your-key-here
 OPENAI_VISION_MODEL=gpt-6-luna
 OPENAI_SCRIPT_MODEL=gpt-6.1-terra
 OPENAI_TTS_MODEL=gpt-realtime-2.1-mini
+OPENAI_REVIEW_MODEL=gpt-6-luna
 
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret
@@ -109,6 +110,7 @@ hãy khởi động lại Electron.
 | `OPENAI_VISION_MODEL` | `gpt-6-luna` | Model tiết kiệm để phân loại frame đại diện của footage |
 | `OPENAI_SCRIPT_MODEL` | `gpt-6.1-terra` | Model chia kịch bản, ghép cảnh và lập timeline |
 | `OPENAI_TTS_MODEL` | `gpt-realtime-2.1-mini` | Model tạo voice cho narration |
+| `OPENAI_REVIEW_MODEL` | `OPENAI_VISION_MODEL` | Model OpenAI xem contact sheet và chấm video |
 | `GOOGLE_CLIENT_ID` | trống | OAuth client ID từ Google Cloud Console |
 | `GOOGLE_CLIENT_SECRET` | trống | OAuth client secret; chỉ backend được đọc |
 | `GOOGLE_REDIRECT_URI` | `http://127.0.0.1:8100/api/oauth/google/callback` | Phải trùng chính xác Authorized redirect URI |

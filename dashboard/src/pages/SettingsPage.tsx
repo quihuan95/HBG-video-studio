@@ -358,7 +358,7 @@ export default function SettingsPage() {
                   </select>
                   {info && !info.installed && (
                     <span className="text-[10px] leading-snug" style={{ color: 'var(--red)' }}>
-                      {t('settings.installHint', { binary: info.binary })}
+                      {t('settings.installHint', { binary: info.binary ?? draft.provider })}
                     </span>
                   )}
                 </div>
@@ -436,7 +436,7 @@ export default function SettingsPage() {
                   </select>
                   {effortLocked && (
                     <span className="text-[10px] leading-snug" style={{ color: 'var(--muted)' }}>
-                      {t('settings.effortLockedHint', { binary: info.binary })}
+                      {t('settings.effortLockedHint', { binary: info.binary ?? draft.provider })}
                     </span>
                   )}
                 </div>

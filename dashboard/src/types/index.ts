@@ -161,7 +161,7 @@ export interface RoleMeta {
 }
 
 export interface ProviderInfo {
-  binary: string
+  binary: string | null
   installed: boolean
   tested: boolean | null
   error: string | null

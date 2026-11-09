@@ -1,8 +1,7 @@
 """Video review engine — frame extraction + AI vision analysis.
 
-Two analysis backends:
-  1. CLI subprocess (claude/agy/codex, default) — no API key needed, uses contact sheets
-  2. Anthropic SDK (if ANTHROPIC_API_KEY set) — direct API, individual frames
+Analysis backends include direct OpenAI API (default), legacy CLI subprocesses,
+and the legacy Anthropic SDK path.
 """
 import asyncio
 import base64
@@ -672,6 +671,35 @@ async def _run_codex_cli(
         out_path.unlink(missing_ok=True)
 
 
+async def _run_openai_api(
+    prompt: str,
+    contact_sheets: list[Path],
+    *,
+    model: str | None = None,
+) -> str:
+    """Analyze contact sheets through OpenAI directly, without a CLI binary."""
+    from openai import AsyncOpenAI
+    from agent.config import OPENAI_API_KEY, OPENAI_REVIEW_MODEL
+
+    if not OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY is required for the OpenAI review provider")
+    content = [{"type": "input_text", "text": prompt}]
+    for sheet in contact_sheets:
+        encoded = base64.b64encode(sheet.read_bytes()).decode("ascii")
+        content.append({
+            "type": "input_image",
+            "image_url": f"data:image/jpeg;base64,{encoded}",
+            "detail": "auto",
+        })
+    response = await AsyncOpenAI(api_key=OPENAI_API_KEY).responses.create(
+        model=model or OPENAI_REVIEW_MODEL,
+        input=[{"role": "user", "content": content}],
+    )
+    if not response.output_text:
+        raise RuntimeError("OpenAI returned an empty video review")
+    return response.output_text
+
+
 async def _analyze_cli(
     contact_sheets: list[Path],
     n_frames: int,
@@ -706,7 +734,7 @@ async def _analyze_cli(
         role = resolve_role("video_review")
     provider = role["provider"]
     logger.info(
-        "Calling %s CLI for vision analysis (%d frames, %d sheets, model=%s, effort=%s, timestamps=%s)",
+        "Calling %s for vision analysis (%d frames, %d sheets, model=%s, effort=%s, timestamps=%s)",
         provider, n_frames, n_sheets,
         role["model"] or "default", role["effort"] or "default", timestamped,
     )
@@ -729,7 +757,12 @@ async def _analyze_cli(
             f"at {fps}fps {stamp_note}, in chronological order (sheet 1 is earliest)."
         )
 
-    if provider == "codex":
+    if provider == "openai":
+        full_prompt = f"{sheet_intro}\n\n{base_prompt}"
+        raw = await _run_openai_api(
+            full_prompt, contact_sheets, model=role["model"]
+        )
+    elif provider == "codex":
         full_prompt = f"{sheet_intro}\n\n{base_prompt}"
         raw = await _run_codex_cli(
             full_prompt, contact_sheets, model=role["model"], effort=role["effort"]
@@ -842,6 +875,8 @@ async def review_scene_video(
     `role` pins the provider/model/effort. `review_video` resolves it once and
     passes it down; a single-scene call resolves it here.
     """
+    if role is None:
+        role = resolve_role("video_review")
     fps = REVIEW_FPS_DEEP if mode == "deep" else REVIEW_FPS_LIGHT
     orient_prefix = "vertical" if orientation.upper() == "VERTICAL" else "horizontal"
 
@@ -849,7 +884,7 @@ async def review_scene_video(
         tmp_path = Path(tmp)
         video_path = await _fetch_scene_video(scene, orient_prefix, tmp_path)
 
-        if ANTHROPIC_API_KEY:
+        if ANTHROPIC_API_KEY and role["provider"] != "openai":
             # SDK path: individual frames
             logger.info("Extracting frames at %sfps (SDK mode)", fps)
             frames = await asyncio.get_event_loop().run_in_executor(

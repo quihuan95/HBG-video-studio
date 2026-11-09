@@ -783,7 +783,7 @@ class TestResolveRole:
         """Hand-edited config should not take the review path down with a
         KeyError deep inside the runner dispatch."""
         monkeypatch.setattr(cli_providers.config, "CLI_PROVIDERS", {"active": "gemini"})
-        assert cli_providers.resolve_role("video_review")["provider"] == "claude"
+        assert cli_providers.resolve_role("video_review")["provider"] == "openai"
 
     def test_effort_outside_the_ladder_is_dropped_not_forwarded(self, monkeypatch):
         """agy rejects xhigh. Forwarding it costs a subprocess round trip to
@@ -794,7 +794,7 @@ class TestResolveRole:
 
     def test_empty_config_still_resolves(self, monkeypatch):
         monkeypatch.setattr(cli_providers.config, "CLI_PROVIDERS", {})
-        assert cli_providers.resolve_role("video_review")["provider"] == "claude"
+        assert cli_providers.resolve_role("video_review")["provider"] == "openai"
 
 
 @pytest.fixture

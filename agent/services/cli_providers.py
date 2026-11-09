@@ -34,6 +34,8 @@ logger = logging.getLogger(__name__)
 
 
 PROVIDER_BINARIES = {
+    # Direct OpenAI API provider; no local executable is required.
+    "openai": None,
     "claude": "claude",
     "agy": "agy",
     "codex": "codex",
@@ -48,6 +50,7 @@ PROVIDER_BINARIES = {
 # (`supported_reasoning_levels` in its cache) — this is the union, and codex
 # itself rejects a level its chosen model does not support.
 PROVIDER_EFFORTS = {
+    "openai": (),
     "claude": ("low", "medium", "high", "xhigh", "max"),
     "agy": ("low", "medium", "high"),
     "codex": ("low", "medium", "high", "xhigh", "max"),
@@ -62,6 +65,7 @@ PROVIDER_EFFORTS = {
 # claude-sonnet-4-6"). Even a *matching* pair only restates the slug. So for
 # agy, effort is what you set when you have NOT picked a model.
 PROVIDER_MODEL_ENCODES_EFFORT = {
+    "openai": False,
     "claude": False,
     "agy": True,
     "codex": False,
@@ -74,6 +78,7 @@ PROVIDER_MODEL_ENCODES_EFFORT = {
 # slugs newer than whatever its on-disk cache happens to hold — for those two,
 # an unlisted value is a legitimate escape hatch, not a typo to reject.
 PROVIDER_CATALOG_IS_AUTHORITATIVE = {
+    "openai": False,
     "claude": False,
     "agy": True,
     "codex": False,
@@ -100,7 +105,7 @@ ROLES = {
     },
 }
 
-DEFAULT_PROVIDER = "claude"
+DEFAULT_PROVIDER = "openai"
 
 _CATALOG_TTL_S = 300.0
 # Unlocked on purpose. Two concurrent misses for the same provider both run the
@@ -172,6 +177,8 @@ async def validate_role_entry(role: str, entry: dict) -> dict:
         raise ValueError(
             f"'{binary}' binary not found on PATH — install it first"
         )
+    if provider == "openai" and not config.OPENAI_API_KEY:
+        raise ValueError("OPENAI_API_KEY is not configured")
     # `muse` (the agent itself) needs no binary and takes no model/effort.
     if provider == "muse" and (entry.get("model") or entry.get("effort")):
         raise ValueError(
@@ -301,6 +308,9 @@ async def list_models(provider: str, force: bool = False) -> list[dict]:
         if hit and now - hit[0] < _CATALOG_TTL_S:
             return list(hit[1])
 
+    if provider == "openai":
+        ids = [config.OPENAI_REVIEW_MODEL, config.OPENAI_VISION_MODEL, config.OPENAI_SCRIPT_MODEL]
+        return [{"id": value, "label": value} for value in dict.fromkeys(ids) if value]
     if provider == "muse":
         return []  # no binary, no catalog — the assistant is the reviewer
     if not shutil.which(PROVIDER_BINARIES[provider]):

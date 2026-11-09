@@ -1,9 +1,9 @@
 {
-  "active": "claude",
+  "active": "openai",
   "roles": {
     "video_review": {
-      "provider": "claude",
-      "model": null,
+      "provider": "openai",
+      "model": "gpt-6-luna",
       "effort": null
     }
   }
