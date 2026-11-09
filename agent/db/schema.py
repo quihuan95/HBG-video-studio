@@ -364,6 +364,20 @@ CREATE TABLE IF NOT EXISTS production_audit_events (
     detail_json TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS footage_classification_runs (
+    video_topic_id TEXT PRIMARY KEY REFERENCES video_topics(id) ON DELETE CASCADE,
+    status TEXT NOT NULL,
+    stage TEXT NOT NULL,
+    message TEXT NOT NULL,
+    current INTEGER NOT NULL DEFAULT 0,
+    total INTEGER NOT NULL DEFAULT 0,
+    force INTEGER NOT NULL DEFAULT 0,
+    logs_json TEXT NOT NULL DEFAULT '[]',
+    result_json TEXT,
+    error TEXT,
+    started_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_video_topics_profile_status ON video_topics(profile_id,status);
 CREATE INDEX IF NOT EXISTS idx_production_jobs_status_schedule ON production_jobs(status,production_date,scheduled_time);
 CREATE INDEX IF NOT EXISTS idx_production_exports_job ON production_exports(production_job_id,revision_id);

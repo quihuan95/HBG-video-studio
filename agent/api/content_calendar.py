@@ -124,7 +124,7 @@ async def classify_topic_footage(video_topic_id: str, force: bool = False):
 
 @router.get("/video-topics/{video_topic_id}/classification-status")
 async def get_topic_classification_status(video_topic_id: str):
-    return classification_status(video_topic_id)
+    return await classification_status(video_topic_id)
 
 
 @router.post("/posts", status_code=201)

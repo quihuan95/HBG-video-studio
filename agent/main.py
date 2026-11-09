@@ -85,6 +85,11 @@ async def run_ws_server():
 async def lifespan(app: FastAPI):
     await init_db()
 
+    from agent.services.video_footage_pipeline import resume_interrupted_classifications
+    resumed = await resume_interrupted_classifications()
+    if resumed:
+        logger.info("Resumed %d interrupted footage classification job(s)", len(resumed))
+
     # Load custom materials from DB into in-memory registry
     from agent.db.crud import list_materials as db_list_materials
     from agent.materials import register_material, _BUILTIN_IDS

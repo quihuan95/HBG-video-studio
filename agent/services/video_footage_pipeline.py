@@ -202,22 +202,58 @@ async def _classify_video_footage(video_topic_id: str, progress: ProgressCallbac
         raise
 
 
-def classification_status(video_topic_id: str) -> dict:
-    return _classification_runs.get(video_topic_id, {
-        "video_topic_id": video_topic_id, "status": "IDLE", "stage": "IDLE",
-        "message": "Chưa chạy phân loại", "current": 0, "total": 0, "logs": [],
-    })
+async def _persist_run(state: dict) -> None:
+    db = await get_db()
+    await db.execute(
+        """INSERT INTO footage_classification_runs(video_topic_id,status,stage,message,current,total,force,logs_json,result_json,error,started_at,updated_at)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+           ON CONFLICT(video_topic_id) DO UPDATE SET status=excluded.status,stage=excluded.stage,
+           message=excluded.message,current=excluded.current,total=excluded.total,force=excluded.force,
+           logs_json=excluded.logs_json,result_json=excluded.result_json,error=excluded.error,
+           started_at=excluded.started_at,updated_at=excluded.updated_at""",
+        (state["video_topic_id"], state["status"], state["stage"], state["message"],
+         state.get("current", 0), state.get("total", 0), int(state.get("force", False)),
+         json.dumps(state.get("logs", []), ensure_ascii=False),
+         json.dumps(state.get("result"), ensure_ascii=False) if state.get("result") is not None else None,
+         state.get("error"), state["started_at"], state["updated_at"]),
+    )
+    await db.commit()
+
+
+async def classification_status(video_topic_id: str) -> dict:
+    active = _classification_runs.get(video_topic_id)
+    if active:
+        return active
+    db = await get_db()
+    row = await (await db.execute("SELECT * FROM footage_classification_runs WHERE video_topic_id=?",
+                                  (video_topic_id,))).fetchone()
+    if not row:
+        return {"video_topic_id": video_topic_id, "status": "IDLE", "stage": "IDLE",
+                "message": "Chưa chạy phân loại", "current": 0, "total": 0, "logs": []}
+    data = dict(row)
+    data["logs"] = json.loads(data.pop("logs_json") or "[]")
+    raw_result = data.pop("result_json")
+    data["result"] = json.loads(raw_result) if raw_result else None
+    data["force"] = bool(data["force"])
+    # A RUNNING row without an in-process task came from an app shutdown.
+    if data["status"] == "RUNNING":
+        data.update({"status": "INTERRUPTED", "stage": "INTERRUPTED",
+                     "message": "Ứng dụng đã dừng; có thể tiếp tục từ clip chưa hoàn tất",
+                     "updated_at": _now()})
+        await _persist_run(data)
+    return data
 
 
 async def start_video_footage_classification(video_topic_id: str, force: bool = False) -> dict:
     task = _classification_tasks.get(video_topic_id)
     if task and not task.done():
-        return classification_status(video_topic_id)
+        return await classification_status(video_topic_id)
     started_at = _now()
     state = {"video_topic_id": video_topic_id, "status": "RUNNING", "stage": "QUEUED",
              "message": "Đã xếp hàng phân loại footage", "current": 0, "total": 0,
-             "started_at": started_at, "updated_at": started_at, "logs": []}
+             "force": force, "started_at": started_at, "updated_at": started_at, "logs": []}
     _classification_runs[video_topic_id] = state
+    await _persist_run(state)
 
     async def progress(stage: str, message: str, current: int, total: int):
         now = _now()
@@ -225,14 +261,31 @@ async def start_video_footage_classification(video_topic_id: str, force: bool = 
                       "total": total, "updated_at": now})
         state["logs"].append({"time": now, "stage": stage, "message": message})
         state["logs"] = state["logs"][-100:]
+        await _persist_run(state)
 
     async def run():
         try:
             result = await _classify_video_footage(video_topic_id, progress, force=force)
             state.update({"status": "COMPLETED", "result": result, "updated_at": _now()})
+            await _persist_run(state)
         except Exception as exc:
             state.update({"status": "FAILED", "stage": "FAILED", "message": str(exc),
                           "error": str(exc), "updated_at": _now()})
+            await _persist_run(state)
 
     _classification_tasks[video_topic_id] = asyncio.create_task(run())
     return state
+
+
+async def resume_interrupted_classifications() -> list[str]:
+    """Resume topics left ANALYZING by an earlier app shutdown."""
+    db = await get_db()
+    rows = await (await db.execute(
+        """SELECT vt.id,COALESCE(r.force,0) force FROM video_topics vt
+           LEFT JOIN footage_classification_runs r ON r.video_topic_id=vt.id
+           WHERE vt.footage_status='ANALYZING'""")).fetchall()
+    resumed = []
+    for row in rows:
+        await start_video_footage_classification(row[0], force=bool(row[1]))
+        resumed.append(row[0])
+    return resumed

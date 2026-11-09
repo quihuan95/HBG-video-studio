@@ -3,6 +3,7 @@ import pytest
 from agent.db import crud
 from agent.db.schema import get_db
 from agent.services.video_footage_pipeline import _category_folder, classify_video_footage
+from agent.services import video_footage_pipeline as pipeline
 from agent.api.content_calendar import _prepare_topic_footage
 
 
@@ -77,3 +78,28 @@ async def test_job_creation_gate_requires_ready_footage(monkeypatch, test_db):
     monkeypatch.setattr("agent.api.content_calendar.classify_video_footage", remains_partial)
     with pytest.raises(ValueError, match="PARTIAL"):
         await _prepare_topic_footage("no-folder")
+
+
+@pytest.mark.asyncio
+async def test_background_progress_survives_memory_reset(monkeypatch, test_db):
+    profile = await crud.create_production_profile(name="HBG", rules_json="{}")
+    db = await get_db(); now = "2026-11-09T00:00:00+00:00"; topic_id = "persist-progress"
+    await db.execute("INSERT INTO video_topics(id,profile_id,spreadsheet_id,source_sheet_id,source_tab_name,title,brief,footage_folder_url,orientation,target_duration_s,status,source_hash,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,'READY',?,?,?)",
+        (topic_id, profile["id"], "sheet", 2, "Tab", "Video", "",
+         "https://drive.google.com/drive/folders/folder_12345678901234567890",
+         "VERTICAL", 1, "h", now, now))
+    await db.commit()
+
+    async def fake_classify(selected_id, progress=None, force=False):
+        await progress("ANALYZING", "Đã xử lý clip 1", 1, 2)
+        return {"status": "READY", "classified": 2}
+
+    monkeypatch.setattr(pipeline, "_classify_video_footage", fake_classify)
+    await pipeline.start_video_footage_classification(topic_id)
+    await pipeline._classification_tasks[topic_id]
+    pipeline._classification_runs.pop(topic_id, None)
+    pipeline._classification_tasks.pop(topic_id, None)
+    restored = await pipeline.classification_status(topic_id)
+    assert restored["status"] == "COMPLETED"
+    assert restored["current"] == 1
+    assert restored["logs"][-1]["message"] == "Đã xử lý clip 1"

@@ -227,6 +227,9 @@ chặn ở cả giao diện lẫn API.
 Sau khi đạt `READY`, nút **Phân tích lại** cho phép chủ động chạy lại OpenAI và
 cập nhật toàn bộ kết quả. Luồng **Tạo video** tái sử dụng kết quả `READY` hiện
 có, không phân tích footage lần nữa.
+Tiến độ và tối đa 100 dòng log gần nhất được lưu trong SQLite sau từng bước.
+Nếu ứng dụng tắt giữa chừng, lần khởi động sau tự khôi phục Job `ANALYZING`;
+các clip đã `READY` được giữ lại và luồng thường chỉ xử lý phần còn thiếu.
 
 Nhấn **Đồng bộ Rule + Sheet**, sau đó mở **Lịch sản xuất**.
 Tab chưa có job có thể tạo Production Job ngay trên lịch. Mỗi job
