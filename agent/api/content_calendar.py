@@ -153,7 +153,10 @@ async def add_post(body: PostCreate):
     if not body.topic_id: raise HTTPException(400, "video_topic_id is required")
     try:
         await _prepare_topic_footage(body.topic_id)
-        return await create_production_job(profile, body.topic_id, body.date, body.time)
+        job = await create_production_job(profile, body.topic_id, body.date, body.time)
+        from agent.services.production_orchestrator import start_production_job
+        await start_production_job(job["id"])
+        return job
     except ValueError as exc: raise HTTPException(400, str(exc)) from exc
     except Exception as exc: raise HTTPException(502, f"Footage preparation failed: {exc}") from exc
 
@@ -169,7 +172,10 @@ async def add_production_job(body: ProductionJobCreate):
     profile = await _profile(body.profile_id)
     try:
         await _prepare_topic_footage(body.video_topic_id)
-        return await create_production_job(profile, body.video_topic_id, body.production_date, body.scheduled_time)
+        job = await create_production_job(profile, body.video_topic_id, body.production_date, body.scheduled_time)
+        from agent.services.production_orchestrator import start_production_job
+        await start_production_job(job["id"])
+        return job
     except ValueError as exc: raise HTTPException(400, str(exc)) from exc
     except Exception as exc: raise HTTPException(502, f"Footage preparation failed: {exc}") from exc
 
@@ -205,6 +211,8 @@ async def cancel_job(job_id: str):
     await db.execute("INSERT INTO production_audit_events(id,production_job_id,revision_id,action,detail_json,created_at) VALUES(?,?,?,?,?,?)",
                      (str(uuid.uuid4()), job_id, jobs[0].get("current_revision_id"), "CANCEL_PRODUCTION", "{}", now))
     await db.commit()
+    from agent.services.production_orchestrator import cancel_running_production
+    await cancel_running_production(job_id)
     progress = await cancel_production_progress(job_id)
     return {"success": True, "job_id": job_id, "status": "CANCELLED", "progress": progress}
 

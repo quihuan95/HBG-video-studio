@@ -93,6 +93,10 @@ async def lifespan(app: FastAPI):
     resumed = await resume_interrupted_classifications()
     if resumed:
         logger.info("Resumed %d interrupted footage classification job(s)", len(resumed))
+    from agent.services.production_orchestrator import resume_production_jobs
+    resumed_production = await resume_production_jobs()
+    if resumed_production:
+        logger.info("Resumed %d production job(s)", len(resumed_production))
 
     # Load custom materials from DB into in-memory registry
     from agent.db.crud import list_materials as db_list_materials

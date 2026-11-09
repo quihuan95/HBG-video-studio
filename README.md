@@ -81,7 +81,7 @@ Sao chép `.env.example` thành `.env` rồi điền secret. Repository đã có
 OPENAI_API_KEY=sk-your-key-here
 OPENAI_VISION_MODEL=gpt-6-luna
 OPENAI_SCRIPT_MODEL=gpt-6.1-terra
-OPENAI_TTS_MODEL=gpt-realtime-2.1-mini
+OPENAI_TTS_MODEL=gpt-4o-mini-tts
 OPENAI_REVIEW_MODEL=gpt-6-luna
 
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
@@ -113,7 +113,7 @@ secret cho giao diện. Sau khi lưu, hãy khởi động lại ứng dụng.
 | `OPENAI_API_KEY` | trống | API key dùng để phân tích footage và các tác vụ OpenAI |
 | `OPENAI_VISION_MODEL` | `gpt-6-luna` | Model tiết kiệm để phân loại frame đại diện của footage |
 | `OPENAI_SCRIPT_MODEL` | `gpt-6.1-terra` | Model chia kịch bản, ghép cảnh và lập timeline |
-| `OPENAI_TTS_MODEL` | `gpt-realtime-2.1-mini` | Model tạo voice cho narration |
+| `OPENAI_TTS_MODEL` | `gpt-4o-mini-tts` | Model tạo voice cho narration |
 | `OPENAI_REVIEW_MODEL` | `OPENAI_VISION_MODEL` | Model OpenAI xem contact sheet và chấm video |
 | `GOOGLE_CLIENT_ID` | trống | OAuth client ID từ Google Cloud Console |
 | `GOOGLE_CLIENT_SECRET` | trống | OAuth client secret; chỉ backend được đọc |
@@ -245,6 +245,11 @@ reset tracker nhưng vẫn giữ lịch sử lần chạy đã hủy.
 Sidebar **Quản lý video** được tách thành hai menu con: **Tạo video** chỉ chứa
 hàng đợi video từ Sheet, còn **Video đã tạo** theo dõi các Job đang làm, hoàn
 thành và đã hủy. Không dùng nhiều tab trong cùng một trang.
+
+Production worker chạy nền ngay sau khi tạo Job: OpenAI Speech tạo voice theo
+scene; kết quả Vision được dùng để chọn footage; FFmpeg tải/cắt/scale, ghép
+timeline, voice, nhạc, logo và phụ đề; video cuối được duyệt và upload Drive.
+Job `DRAFT/PROCESSING` được tự tiếp tục sau khi mở lại ứng dụng.
 
 Nhấn **Đồng bộ Rule + Sheet**, sau đó mở **Lịch sản xuất**.
 Tab chưa có job có thể tạo Production Job ngay trên lịch. Mỗi job
