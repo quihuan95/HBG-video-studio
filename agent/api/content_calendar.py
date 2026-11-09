@@ -1,8 +1,11 @@
 """Production profiles, video scripts, jobs, and production calendar API."""
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from agent.db import crud
+from agent.db.schema import get_db
 from agent.services.content_planning import (
     create_rule, list_rules, sync_rules,
 )
@@ -41,6 +44,11 @@ class ProductionJobCreate(BaseModel):
 
 class ProductionJobApprove(BaseModel):
     output_path: str | None = None
+
+
+class ScheduleUpdate(BaseModel):
+    date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    time: str = Field(default="09:00", pattern=r"^\d{2}:\d{2}$")
 
 
 async def _profile(profile_id: str) -> dict:
@@ -112,6 +120,17 @@ async def get_video_topics(all: bool = False):
     return await list_video_topics(all)
 
 
+@router.patch("/video-topics/{video_topic_id}/schedule")
+async def schedule_video_topic(video_topic_id: str, body: ScheduleUpdate):
+    from agent.services.video_planning import _rows
+    db = await get_db()
+    cursor = await db.execute("UPDATE video_topics SET production_date=?,scheduled_time=?,updated_at=? WHERE id=?",
+                              (body.date, body.time, datetime.now(timezone.utc).isoformat(), video_topic_id))
+    await db.commit()
+    if not cursor.rowcount: raise HTTPException(404, "Video Topic not found")
+    return (await _rows("SELECT * FROM video_topics WHERE id=?", (video_topic_id,)))[0]
+
+
 @router.post("/video-topics/{video_topic_id}/classify-footage")
 async def classify_topic_footage(video_topic_id: str, force: bool = False):
     try:
@@ -166,6 +185,17 @@ async def get_job_progress(job_id: str):
     if not progress:
         raise HTTPException(404, "Production progress not found")
     return progress
+
+
+@router.patch("/production-jobs/{job_id}/schedule")
+async def schedule_job(job_id: str, body: ScheduleUpdate):
+    from agent.services.video_planning import _rows
+    db = await get_db()
+    cursor = await db.execute("UPDATE production_jobs SET production_date=?,scheduled_time=?,updated_at=? WHERE id=?",
+                              (body.date, body.time, datetime.now(timezone.utc).isoformat(), job_id))
+    await db.commit()
+    if not cursor.rowcount: raise HTTPException(404, "Production Job not found")
+    return (await _rows("SELECT * FROM production_jobs WHERE id=?", (job_id,)))[0]
 
 
 def _export_http_error(exc: DriveExportError) -> HTTPException:

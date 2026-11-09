@@ -233,6 +233,9 @@ các clip đã `READY` được giữ lại và luồng thường chỉ xử lý
 Production Job cũng có tracker SQLite riêng cho 8 bước: kịch bản, voice, chọn
 footage, timeline, branding, phụ đề, render và Drive export. Màn hình **Đang
 làm** hiển thị phần trăm, trạng thái từng bước và log, tự cập nhật mỗi 3 giây.
+Trang **Lịch sản xuất** hiển thị dạng tháng. Mỗi video/job là một chấm mang màu
+của Production Profile; nhiều video trong cùng ngày tạo nhiều chấm. Video chưa
+có ngày nằm trong danh sách **Chưa xếp lịch** và có thể gán vào ngày đang chọn.
 
 Nhấn **Đồng bộ Rule + Sheet**, sau đó mở **Lịch sản xuất**.
 Tab chưa có job có thể tạo Production Job ngay trên lịch. Mỗi job
