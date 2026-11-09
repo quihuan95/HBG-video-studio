@@ -79,7 +79,9 @@ Sao chép `.env.example` thành `.env` rồi điền secret. Repository đã có
 
 ```dotenv
 OPENAI_API_KEY=sk-your-key-here
-OPENAI_VISION_MODEL=gpt-6.1-sol
+OPENAI_VISION_MODEL=gpt-6-luna
+OPENAI_SCRIPT_MODEL=gpt-6.1-terra
+OPENAI_TTS_MODEL=gpt-realtime-2.1-mini
 
 GOOGLE_SERVICE_ACCOUNT_FILE=D:\secrets\google-service-account.json
 
@@ -101,7 +103,9 @@ hãy khởi động lại Electron.
 | `API_PORT` | `8100` | Port FastAPI |
 | `FLOWKIT_DEBUG_ENDPOINTS` | `0` | Bật các endpoint debug; nên giữ `0` khi vận hành |
 | `OPENAI_API_KEY` | trống | API key dùng để phân tích footage và các tác vụ OpenAI |
-| `OPENAI_VISION_MODEL` | `gpt-6.1-sol` | Model phân loại frame đại diện của footage |
+| `OPENAI_VISION_MODEL` | `gpt-6-luna` | Model tiết kiệm để phân loại frame đại diện của footage |
+| `OPENAI_SCRIPT_MODEL` | `gpt-6.1-terra` | Model chia kịch bản, ghép cảnh và lập timeline |
+| `OPENAI_TTS_MODEL` | `gpt-realtime-2.1-mini` | Model tạo voice cho narration |
 | `GOOGLE_SERVICE_ACCOUNT_FILE` | trống | Đường dẫn JSON service account cho Google Drive/Sheets |
 
 Các cấu hình nâng cao nằm trong [`agent/config.py`](agent/config.py).
