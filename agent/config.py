@@ -2,9 +2,15 @@
 import json
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load local secrets before reading any configuration values. Existing process
+# environment variables take precedence over values from the file.
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(_PROJECT_ROOT / ".env", override=False)
 
 # ─── Paths ───────────────────────────────────────────────────
-BASE_DIR = Path(os.environ.get("FLOW_AGENT_DIR", Path(__file__).parent.parent))
+BASE_DIR = Path(os.environ.get("FLOW_AGENT_DIR", _PROJECT_ROOT))
 DB_PATH = BASE_DIR / "flow_agent.db"
 
 # ─── API Server ──────────────────────────────────────────────

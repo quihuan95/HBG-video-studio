@@ -74,23 +74,24 @@ ffprobe -version
 
 ## Cấu hình
 
-Thiết lập các biến môi trường trong cửa sổ PowerShell dùng để chạy backend:
+Sao chép `.env.example` thành `.env` rồi điền secret. Repository đã có sẵn file
+`.env` local và Git sẽ bỏ qua file này:
 
-```powershell
-$env:API_HOST = "127.0.0.1"
-$env:API_PORT = "8100"
-$env:FLOWKIT_DEBUG_ENDPOINTS = "0"
+```dotenv
+OPENAI_API_KEY=sk-your-key-here
+OPENAI_VISION_MODEL=gpt-6.1-sol
 
-# AI phân loại footage
-$env:OPENAI_API_KEY = "sk-..."
-$env:OPENAI_VISION_MODEL = "gpt-6.1-sol"
+GOOGLE_SERVICE_ACCOUNT_FILE=D:\secrets\google-service-account.json
 
-# Google Drive/Sheets: share các folder và sheet cho email service account
-$env:GOOGLE_SERVICE_ACCOUNT_FILE = "D:\secrets\google-service-account.json"
+API_HOST=127.0.0.1
+API_PORT=8100
+FLOWKIT_DEBUG_ENDPOINTS=0
+FLOW_ENABLED=0
 ```
 
-Các biến trên chỉ tồn tại trong phiên PowerShell hiện tại. Sau khi thay đổi cấu
-hình, hãy khởi động lại backend.
+Backend tự động đọc `.env` khi khởi động. Biến môi trường được đặt trực tiếp từ
+hệ điều hành vẫn có độ ưu tiên cao hơn giá trị trong file. Sau khi sửa `.env`,
+hãy khởi động lại Electron.
 
 ### Biến môi trường chính
 

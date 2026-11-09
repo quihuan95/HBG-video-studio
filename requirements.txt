@@ -10,3 +10,4 @@ openai>=2.0.0
 google-api-python-client>=2.100.0
 google-auth-oauthlib>=1.0.0
 python-multipart>=0.0.9
+python-dotenv>=1.0.0
