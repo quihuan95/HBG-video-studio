@@ -31,8 +31,9 @@ ANALYSIS_SCHEMA = {
                     "start": {"type": "number"},
                     "end": {"type": "number"},
                     "description": {"type": "string"},
+                    "has_center_text": {"type": "boolean"},
                 },
-                "required": ["start", "end", "description"],
+                "required": ["start", "end", "description", "has_center_text"],
                 "additionalProperties": False,
             },
         },
@@ -118,7 +119,10 @@ async def analyze_footage(asset_id: str, profile: dict) -> dict:
                 "Analyze these chronological frames from one footage clip for a professional video editor. "
                 f"Profile tone: {profile.get('tone') or 'neutral'}. Language: {profile.get('language') or 'vi'}. "
                 f"Clip duration: {asset.get('duration_s') or 'unknown'} seconds. "
-                "Classify content, describe useful editorial ranges conservatively, and return only the schema."
+                "Classify content and describe chronological editorial ranges conservatively. For every range, "
+                "set has_center_text=true when subtitles, captions, titles, logos, banners, or watermarks occupy "
+                "the central viewing area; corner-only marks do not count unless they intrude into the center. "
+                "Return only the schema."
             ),
         }]
         for frame in frames:

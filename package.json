@@ -6,5 +6,8 @@
     "dev": "npm --prefix dashboard run dev",
     "build": "npm --prefix dashboard run build",
     "install:dashboard": "npm --prefix dashboard install"
+  },
+  "dependencies": {
+    "capcut-cli": "0.33.1"
   }
 }

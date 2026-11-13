@@ -33,6 +33,8 @@ from agent.api.production import router as production_router
 from agent.api.google_oauth import router as google_oauth_router
 from agent.api.openai_settings import router as openai_settings_router
 from agent.api.content_calendar import router as content_calendar_router
+from agent.api.footage_research import router as footage_research_router
+from agent.api.video_analyses import router as video_analyses_router
 from agent.worker.processor import get_worker_controller
 from agent.services.flow_client import get_flow_client
 from agent.services.event_bus import event_bus
@@ -97,6 +99,10 @@ async def lifespan(app: FastAPI):
     resumed_production = await resume_production_jobs()
     if resumed_production:
         logger.info("Resumed %d production job(s)", len(resumed_production))
+    from agent.services.rea_video_adapter import mark_interrupted_analyses
+    interrupted_rea = await mark_interrupted_analyses()
+    if interrupted_rea:
+        logger.info("Marked %d interrupted REA Video analysis job(s) retryable", interrupted_rea)
 
     # Load custom materials from DB into in-memory registry
     from agent.db.crud import list_materials as db_list_materials
@@ -241,6 +247,8 @@ app.include_router(production_router, prefix="/api")
 app.include_router(google_oauth_router, prefix="/api")
 app.include_router(openai_settings_router, prefix="/api")
 app.include_router(content_calendar_router, prefix="/api")
+app.include_router(footage_research_router, prefix="/api")
+app.include_router(video_analyses_router, prefix="/api")
 
 
 _CALLBACK_SECRET = secrets.token_urlsafe(32)

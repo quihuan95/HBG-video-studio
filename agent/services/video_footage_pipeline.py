@@ -8,6 +8,7 @@ import re
 from datetime import datetime, timezone
 from typing import Awaitable, Callable
 
+from agent import config
 from agent.db import crud
 from agent.db.schema import get_db
 from agent.services.footage_analyzer import analyze_footage
@@ -18,6 +19,8 @@ CLASSIFIED_FOLDER = "_AI_CLASSIFIED"
 ProgressCallback = Callable[[str, str, int, int], Awaitable[None]]
 _classification_runs: dict[str, dict] = {}
 _classification_tasks: dict[str, asyncio.Task] = {}
+_classification_queue: asyncio.Queue[tuple[str, bool, dict, asyncio.Future]] | None = None
+_classification_worker_task: asyncio.Task | None = None
 
 
 def _now() -> str:
@@ -31,16 +34,23 @@ def _category_folder(value: str | None) -> str:
 
 async def _source_for_topic(topic: dict) -> dict:
     db = await get_db()
-    cursor = await db.execute("SELECT * FROM footage_source WHERE video_topic_id=?", (topic["id"],))
+    cursor = await db.execute(
+        """SELECT s.*,COUNT(a.id) asset_count,
+                  SUM(CASE WHEN a.status='READY' THEN 1 ELSE 0 END) ready_count
+           FROM footage_source s LEFT JOIN footage_asset a ON a.source_id=s.id
+           WHERE s.profile_id=? AND s.source_type='google_drive' AND s.location=?
+           GROUP BY s.id ORDER BY ready_count DESC,asset_count DESC,s.created_at LIMIT 1""",
+        (topic["profile_id"], topic["footage_folder_url"]),
+    )
     row = await cursor.fetchone()
     if row:
         source = dict(row)
-        if source["location"] != topic["footage_folder_url"]:
-            source = await crud.update_footage_source(source["id"], location=topic["footage_folder_url"])
+        if not source.get("recursive"):
+            source = await crud.update_footage_source(source["id"], recursive=1)
         return source
     return await crud.create_footage_source(
         topic["profile_id"], "google_drive", f"Footage - {topic['source_tab_name']}",
-        topic["footage_folder_url"], recursive=False, video_topic_id=topic["id"])
+        topic["footage_folder_url"], recursive=True, video_topic_id=topic["id"])
 
 
 def _organize_files_sync(root_folder_id: str, items: list[dict], access_token: str) -> dict:
@@ -65,19 +75,23 @@ def _organize_files_sync(root_folder_id: str, items: list[dict], access_token: s
 
     classified_id = folder(root_folder_id, CLASSIFIED_FOLDER)
     category_ids: dict[str, str] = {}
-    moved: dict[str, str] = {}
+    categorized: dict[str, str] = {}
     for item in items:
         category = _category_folder(item.get("category"))
         if category not in category_ids:
             category_ids[category] = folder(classified_id, category)
         category_id = category_ids[category]
-        metadata = service.files().get(fileId=item["external_id"], fields="parents", supportsAllDrives=True).execute()
-        parents = metadata.get("parents", [])
-        if category_id not in parents:
-            service.files().update(
-                fileId=item["external_id"], addParents=category_id,
-                removeParents=",".join(parents), fields="id,parents", supportsAllDrives=True).execute()
-        moved[item["external_id"]] = category
+        shortcuts = service.files().list(
+            q=f"'{category_id}' in parents and mimeType='application/vnd.google-apps.shortcut' and trashed=false",
+            fields="files(id,shortcutDetails(targetId))", pageSize=1000,
+            supportsAllDrives=True, includeItemsFromAllDrives=True).execute().get("files", [])
+        if not any((shortcut.get("shortcutDetails") or {}).get("targetId") == item["external_id"]
+                   for shortcut in shortcuts):
+            service.files().create(
+                body={"name": item["file_name"], "mimeType": "application/vnd.google-apps.shortcut",
+                      "shortcutDetails": {"targetId": item["external_id"]}, "parents": [category_id]},
+                fields="id", supportsAllDrives=True).execute()
+        categorized[item["external_id"]] = category
 
     def parsed(value: str | None, fallback):
         try:
@@ -131,9 +145,47 @@ def _organize_files_sync(root_folder_id: str, items: list[dict], access_token: s
     from googleapiclient.http import MediaIoBaseUpload
     catalog_id = upsert("FOOTAGE_CATALOG.json", json.dumps(catalog, ensure_ascii=False, indent=2).encode(), "application/json")
     report_id = upsert("FOOTAGE_REPORT.md", "\n".join(report_lines).encode(), "text/markdown")
-    return {"moved": moved, "classified_folder_id": classified_id,
+    return {"categorized": categorized, "classified_folder_id": classified_id,
             "classified_folder_url": f"https://drive.google.com/drive/folders/{classified_id}",
             "catalog_file_id": catalog_id, "report_file_id": report_id}
+
+
+def _restore_legacy_moved_files_sync(root_folder_id: str, access_token: str) -> int:
+    """Move videos displaced by the old organizer back to the shared source root."""
+    from google.oauth2.credentials import Credentials
+    from googleapiclient.discovery import build
+
+    service = build("drive", "v3", credentials=Credentials(token=access_token), cache_discovery=False)
+
+    def children(parent_id: str) -> list[dict]:
+        result, token = [], None
+        while True:
+            response = service.files().list(
+                q=f"'{parent_id}' in parents and trashed=false", pageToken=token, pageSize=1000,
+                fields="nextPageToken,files(id,name,mimeType,parents)", supportsAllDrives=True,
+                includeItemsFromAllDrives=True).execute()
+            result.extend(response.get("files", [])); token = response.get("nextPageToken")
+            if not token:
+                return result
+
+    classified = next((item for item in children(root_folder_id)
+                       if item.get("name") == CLASSIFIED_FOLDER and
+                       item.get("mimeType") == "application/vnd.google-apps.folder"), None)
+    if not classified:
+        return 0
+    restored, pending = 0, [classified["id"]]
+    while pending:
+        for item in children(pending.pop(0)):
+            if item.get("mimeType") == "application/vnd.google-apps.folder":
+                pending.append(item["id"])
+            elif item.get("mimeType", "").startswith("video/"):
+                parents = item.get("parents") or []
+                service.files().update(
+                    fileId=item["id"], addParents=root_folder_id,
+                    removeParents=",".join(parents), fields="id,parents",
+                    supportsAllDrives=True).execute()
+                restored += 1
+    return restored
 
 
 async def classify_video_footage(video_topic_id: str, force: bool = False) -> dict:
@@ -162,28 +214,51 @@ async def _classify_video_footage(video_topic_id: str, progress: ProgressCallbac
     await db.commit()
     try:
         source = await _source_for_topic(topic)
+        # Scan and inspect Drive footage in place. Never move or shortcut the
+        # user's source files into generated classification folders.
         await emit("SCANNING", "Đang quét các file video trong Google Drive")
         await scan_google_drive(source)
         assets = await crud.list_footage_assets(topic["profile_id"])
         assets = [item for item in assets if item["source_id"] == source["id"]]
+        def needs_text_safety_analysis(item: dict) -> bool:
+            if item["status"] != "READY":
+                return True
+            try:
+                ranges = json.loads(item.get("usable_ranges_json") or "[]")
+            except ValueError:
+                return True
+            return any("has_center_text" not in segment for segment in ranges)
+
+        needs_organization = force or any(needs_text_safety_analysis(item) for item in assets)
         await emit("ANALYZING", f"Tìm thấy {len(assets)} clip footage", 0, len(assets))
         errors = []
         analyzed = []
         for index, asset in enumerate(assets, start=1):
             try:
                 await emit("ANALYZING", f"Đang phân tích {asset['file_name']}", index - 1, len(assets))
-                result = asset if asset["status"] == "READY" and not force else await analyze_footage(asset["id"], profile)
+                result = (asset if not force and not needs_text_safety_analysis(asset)
+                          else await analyze_footage(asset["id"], profile))
                 analyzed.append(result)
                 await emit("ANALYZING", f"Đã phân loại {asset['file_name']} → {_category_folder(result.get('category'))}", index, len(assets))
             except Exception as exc:
                 errors.append({"asset_id": asset["id"], "file_name": asset["file_name"], "error": str(exc)})
                 await emit("ANALYZING", f"Lỗi {asset['file_name']}: {exc}", index, len(assets))
         organization = None
-        if analyzed:
+        if False and analyzed and needs_organization:
             await emit("ORGANIZING", f"Đang chuyển {len(analyzed)} clip vào {CLASSIFIED_FOLDER}", len(analyzed), len(assets))
-            token = await get_valid_access_token()
             organization = await asyncio.to_thread(_organize_files_sync, folder_id, analyzed, token)
             await emit("SAVING", "Đã lưu FOOTAGE_CATALOG.json và FOOTAGE_REPORT.md trên Drive", len(analyzed), len(assets))
+        if analyzed:
+            organization = json.loads(topic.get("footage_result_json") or "{}")
+            await emit("SAVING", "Footage không đổi; tái sử dụng kết quả phân loại", len(analyzed), len(assets))
+        organization = {
+            "mode": "inspect_in_place",
+            "source_folder_id": folder_id,
+            "inspected": len(analyzed),
+            "files_moved": 0,
+            "classified_folder_id": None,
+            "classified_folder_url": None,
+        }
         status = "READY" if not errors else ("PARTIAL" if analyzed else "FAILED")
         await db.execute("UPDATE video_topics SET footage_status=?,footage_error=?,footage_result_json=?,updated_at=? WHERE id=?",
                          (status, None if not errors else str(errors)[:4000],
@@ -255,26 +330,48 @@ async def start_video_footage_classification(video_topic_id: str, force: bool = 
     _classification_runs[video_topic_id] = state
     await _persist_run(state)
 
-    async def progress(stage: str, message: str, current: int, total: int):
-        now = _now()
-        state.update({"stage": stage, "message": message, "current": current,
-                      "total": total, "updated_at": now})
-        state["logs"].append({"time": now, "stage": stage, "message": message})
-        state["logs"] = state["logs"][-100:]
-        await _persist_run(state)
+    queue = _ensure_classification_worker()
+    completion = asyncio.get_running_loop().create_future()
+    _classification_tasks[video_topic_id] = completion
+    await queue.put((video_topic_id, force, state, completion))
+    return state
 
-    async def run():
+
+def _ensure_classification_worker() -> asyncio.Queue:
+    global _classification_queue, _classification_worker_task
+    if _classification_queue is None:
+        _classification_queue = asyncio.Queue()
+    if _classification_worker_task is None or _classification_worker_task.done():
+        _classification_worker_task = asyncio.create_task(_classification_worker_loop())
+    return _classification_queue
+
+
+async def _classification_worker_loop() -> None:
+    assert _classification_queue is not None
+    while True:
+        video_topic_id, force, state, completion = await _classification_queue.get()
         try:
+            async def progress(stage: str, message: str, current: int, total: int):
+                now = _now()
+                state.update({"stage": stage, "message": message, "current": current,
+                              "total": total, "updated_at": now})
+                state["logs"].append({"time": now, "stage": stage, "message": message})
+                state["logs"] = state["logs"][-100:]
+                await _persist_run(state)
+
             result = await _classify_video_footage(video_topic_id, progress, force=force)
             state.update({"status": "COMPLETED", "result": result, "updated_at": _now()})
             await _persist_run(state)
+            if not completion.done():
+                completion.set_result(result)
         except Exception as exc:
             state.update({"status": "FAILED", "stage": "FAILED", "message": str(exc),
                           "error": str(exc), "updated_at": _now()})
             await _persist_run(state)
-
-    _classification_tasks[video_topic_id] = asyncio.create_task(run())
-    return state
+            if not completion.done():
+                completion.set_result(None)
+        finally:
+            _classification_queue.task_done()
 
 
 async def resume_interrupted_classifications() -> list[str]:

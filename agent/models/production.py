@@ -10,7 +10,7 @@ class ProductionRules(BaseModel):
     subtitle_style: dict[str, Any] = Field(default_factory=dict)
     target_resolution: str = "1920x1080"
     target_fps: int = 30
-    music_volume: float = Field(0.15, ge=0, le=1)
+    music_volume: float = Field(0.106, ge=0, le=1)
     voice_volume: float = Field(1.0, ge=0, le=2)
     extra: dict[str, Any] = Field(default_factory=dict)
 

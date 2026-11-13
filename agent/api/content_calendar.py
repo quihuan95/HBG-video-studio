@@ -1,17 +1,23 @@
 """Production profiles, video scripts, jobs, and production calendar API."""
 from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import subprocess
 import uuid
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+from typing import Literal
 
 from agent.db import crud
+from agent import config
 from agent.db.schema import get_db
 from agent.services.content_planning import (
     create_rule, list_rules, sync_rules,
 )
 from agent.services.video_planning import (
-    create_production_job, list_video_topics, production_calendar, sync_spreadsheet,
+    create_production_job, delete_production_job, list_video_topics, production_calendar, sync_spreadsheet,
 )
 from agent.services.drive_output_export import (
     DriveExportError, approve_production_job, export_production_job,
@@ -21,6 +27,7 @@ from agent.services.video_footage_pipeline import (
 )
 
 router = APIRouter(tags=["content-calendar"])
+_capcut_regenerating: set[str] = set()
 
 
 class RuleCreate(BaseModel):
@@ -41,6 +48,7 @@ class ProductionJobCreate(BaseModel):
     video_topic_id: str
     production_date: str | None = None
     scheduled_time: str | None = None
+    footage_mode: Literal["DRIVE_ONLY", "INTERNET_ONLY", "HYBRID"] = "HYBRID"
 
 
 class ProductionJobApprove(BaseModel):
@@ -52,6 +60,10 @@ class ScheduleUpdate(BaseModel):
     time: str = Field(default="09:00", pattern=r"^\d{2}:\d{2}$")
 
 
+class ReferenceAnalysisLink(BaseModel):
+    analysis_id: str | None = None
+
+
 async def _profile(profile_id: str) -> dict:
     profile = await crud.get_production_profile(profile_id)
     if not profile: raise HTTPException(404, "Production profile not found")
@@ -59,19 +71,18 @@ async def _profile(profile_id: str) -> dict:
 
 
 async def _prepare_topic_footage(video_topic_id: str) -> None:
+    """Refresh the topic Drive folder; Internet is only the fallback source."""
+    from agent.services import youtube_footage
+    from agent.services.video_footage_pipeline import classify_video_footage
     from agent.services.video_planning import _rows
-    topics = await _rows("SELECT footage_folder_url,footage_status,footage_error FROM video_topics WHERE id=?", (video_topic_id,))
+    topics = await _rows("SELECT * FROM video_topics WHERE id=?", (video_topic_id,))
     if not topics:
         raise ValueError("Video Topic not found")
-    topic = topics[0]
-    if not topic.get("footage_folder_url"):
-        raise ValueError("Phải cấu hình folder footage ở dòng 3 của tab trước khi tạo video")
-    if topic.get("footage_status") != "READY":
+    if topics[0].get("footage_folder_url"):
         await classify_video_footage(video_topic_id)
-        topic = (await _rows("SELECT footage_status,footage_error FROM video_topics WHERE id=?", (video_topic_id,)))[0]
-    if topic.get("footage_status") != "READY":
-        detail = topic.get("footage_error") or "Footage chưa được phân loại hoàn tất"
-        raise ValueError(f"Không thể tạo video khi footage ở trạng thái {topic.get('footage_status')}: {detail}")
+        return
+    if not (youtube_footage.available() or (config.FOOTAGE_EXTERNAL_ENABLED and config.PEXELS_API_KEY)):
+        raise ValueError("Chưa có nguồn footage Internet: bật YOUTUBE_FOOTAGE_ENABLED hoặc cấu hình PEXELS_API_KEY")
 
 
 @router.get("/profiles/{profile_id}/rules")
@@ -105,7 +116,8 @@ async def sync_all_profiles():
         if not profile.get("active") or not (profile.get("sheet_id_topics") or profile.get("sheet_url")): continue
         try:
             results.append({"profile_id": profile["id"], "ok": True,
-                            "rule": await sync_rules(profile), "videos": await sync_spreadsheet(profile)})
+                            "rule": await sync_rules(profile),
+                            "videos": await sync_spreadsheet(profile)})
         except Exception as exc:
             results.append({"profile_id": profile["id"], "ok": False, "error": str(exc)})
     return {"results": results}
@@ -132,6 +144,27 @@ async def schedule_video_topic(video_topic_id: str, body: ScheduleUpdate):
     return (await _rows("SELECT * FROM video_topics WHERE id=?", (video_topic_id,)))[0]
 
 
+@router.patch("/video-topics/{video_topic_id}/reference-analysis")
+async def link_reference_analysis(video_topic_id: str, body: ReferenceAnalysisLink):
+    from agent.services.video_planning import _rows
+    topics = await _rows("SELECT profile_id FROM video_topics WHERE id=?", (video_topic_id,))
+    if not topics:
+        raise HTTPException(404, "Video Topic not found")
+    if body.analysis_id:
+        analyses = await _rows("SELECT profile_id,status FROM video_analyses WHERE id=?", (body.analysis_id,))
+        if not analyses:
+            raise HTTPException(404, "Reference analysis not found")
+        if analyses[0]["status"] != "COMPLETED":
+            raise HTTPException(409, "Reference analysis is not completed")
+        if analyses[0].get("profile_id") and analyses[0]["profile_id"] != topics[0]["profile_id"]:
+            raise HTTPException(400, "Reference analysis belongs to another profile")
+    db = await get_db()
+    await db.execute("UPDATE video_topics SET reference_analysis_id=?,updated_at=? WHERE id=?",
+                     (body.analysis_id, datetime.now(timezone.utc).isoformat(), video_topic_id))
+    await db.commit()
+    return (await _rows("SELECT * FROM video_topics WHERE id=?", (video_topic_id,)))[0]
+
+
 @router.post("/video-topics/{video_topic_id}/classify-footage")
 async def classify_topic_footage(video_topic_id: str, force: bool = False):
     try:
@@ -152,7 +185,6 @@ async def add_post(body: PostCreate):
     profile = await _profile(body.profile_id)
     if not body.topic_id: raise HTTPException(400, "video_topic_id is required")
     try:
-        await _prepare_topic_footage(body.topic_id)
         job = await create_production_job(profile, body.topic_id, body.date, body.time)
         from agent.services.production_orchestrator import start_production_job
         await start_production_job(job["id"])
@@ -171,8 +203,9 @@ async def get_posts():
 async def add_production_job(body: ProductionJobCreate):
     profile = await _profile(body.profile_id)
     try:
-        await _prepare_topic_footage(body.video_topic_id)
-        job = await create_production_job(profile, body.video_topic_id, body.production_date, body.scheduled_time)
+        job = await create_production_job(
+            profile, body.video_topic_id, body.production_date, body.scheduled_time,
+            footage_mode=body.footage_mode)
         from agent.services.production_orchestrator import start_production_job
         await start_production_job(job["id"])
         return job
@@ -192,6 +225,29 @@ async def get_job_progress(job_id: str):
     if not progress:
         raise HTTPException(404, "Production progress not found")
     return progress
+
+
+@router.post("/production-jobs/{job_id}/regenerate", status_code=202)
+async def regenerate_job(job_id: str):
+    from agent.services.video_planning import _rows
+    jobs = await _rows("SELECT * FROM production_jobs WHERE id=?", (job_id,))
+    if not jobs:
+        raise HTTPException(404, "Production Job not found")
+    job = jobs[0]
+    if not job.get("video_topic_id"):
+        raise HTTPException(400, "Production Job has no source video topic")
+    profile = await _profile(job["profile_id"])
+    try:
+        regenerated = await create_production_job(
+            profile, job["video_topic_id"], job.get("production_date"),
+            job.get("scheduled_time"), force=True,
+            footage_mode=job.get("footage_mode") or "HYBRID",
+        )
+        from agent.services.production_orchestrator import start_production_job
+        await start_production_job(regenerated["id"])
+        return regenerated
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
 
 
 @router.post("/production-jobs/{job_id}/cancel")
@@ -215,6 +271,94 @@ async def cancel_job(job_id: str):
     await cancel_running_production(job_id)
     progress = await cancel_production_progress(job_id)
     return {"success": True, "job_id": job_id, "status": "CANCELLED", "progress": progress}
+
+
+@router.delete("/production-jobs/{job_id}")
+async def delete_job(job_id: str):
+    """Delete a finished job; the source topic then returns to the create-video list."""
+    from agent.services.drive_output_export import export_in_progress
+    if export_in_progress(job_id):
+        raise HTTPException(409, "Không thể xóa khi video đang upload Google Drive")
+    try:
+        return await delete_production_job(job_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@router.post("/production-jobs/{job_id}/open-capcut")
+async def open_job_in_capcut(job_id: str):
+    from agent.services.video_planning import _rows
+    jobs = await _rows("SELECT capcut_draft_path FROM production_jobs WHERE id=?", (job_id,))
+    if not jobs:
+        raise HTTPException(404, "Production Job not found")
+    draft = Path(jobs[0].get("capcut_draft_path") or "")
+    if not draft.is_dir():
+        raise HTTPException(404, "CapCut draft chưa được tạo hoặc không còn tồn tại")
+    if os.name != "nt":
+        raise HTTPException(400, "Mở CapCut tự động hiện chỉ hỗ trợ Windows")
+    local_app_data = Path(os.environ.get("LOCALAPPDATA", ""))
+    capcut = local_app_data / "CapCut" / "Apps" / "CapCut.exe"
+    if not capcut.is_file():
+        raise HTTPException(404, "Không tìm thấy CapCut Desktop")
+    subprocess.Popen([str(capcut)], creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
+    os.startfile(str(draft))
+    return {"success": True, "draft_path": str(draft)}
+
+
+@router.post("/production-jobs/{job_id}/regenerate-capcut")
+async def regenerate_capcut_draft(job_id: str):
+    from agent.services.capcut_export import export_capcut_draft
+    from agent.services.production_progress import update_production_progress
+    from agent.services.video_planning import _rows
+    rows = await _rows(
+        """SELECT j.id,j.title,j.status,j.current_revision_id,r.scenes_json,r.assets_json,
+                  p.music_path,p.rules_json,vt.orientation
+           FROM production_jobs j JOIN production_revisions r ON r.id=j.current_revision_id
+           JOIN production_profile p ON p.id=j.profile_id
+           LEFT JOIN video_topics vt ON vt.id=j.video_topic_id WHERE j.id=?""", (job_id,))
+    if not rows:
+        raise HTTPException(404, "Production Job not found")
+    data = rows[0]
+    if data["status"] not in {"COMPLETED", "APPROVED", "READY_FOR_MANUAL_UPLOAD", "MANUALLY_UPLOADED"}:
+        raise HTTPException(409, f"Chỉ tạo lại draft cho video đã hoàn thành; trạng thái hiện tại: {data['status']}")
+    work = config.OUTPUT_DIR / "production_jobs" / job_id / data["current_revision_id"]
+    if not work.is_dir():
+        raise HTTPException(404, "Không còn file scene/voice cục bộ để tạo lại draft CapCut")
+    if job_id in _capcut_regenerating:
+        raise HTTPException(409, "Draft CapCut của video này đang được tạo lại")
+    _capcut_regenerating.add(job_id)
+    try:
+        await update_production_progress(job_id, "CAPCUT_EXPORT", "PROCESSING",
+                                         "Đang tạo lại draft CapCut", 92)
+        scenes = json.loads(data["scenes_json"] or "[]")
+        rules = json.loads(data.get("rules_json") or "{}")
+        draft = await export_capcut_draft(
+            job_id, data.get("title") or "Video", work, scenes, data.get("orientation") or "HORIZONTAL",
+            data.get("music_path"), float(rules.get("music_volume", .106)), replace=True,
+        )
+        assets = json.loads(data.get("assets_json") or "{}")
+        assets["capcut_draft_path"] = str(draft)
+        db = await get_db()
+        await db.execute("UPDATE production_revisions SET assets_json=? WHERE id=?",
+                         (json.dumps(assets, ensure_ascii=False), data["current_revision_id"]))
+        await db.execute("UPDATE production_jobs SET capcut_draft_path=?,capcut_error=NULL,updated_at=? WHERE id=?",
+                         (str(draft), datetime.now(timezone.utc).isoformat(), job_id))
+        await db.commit()
+        await update_production_progress(job_id, "CAPCUT_EXPORT", "COMPLETED",
+                                         "Đã tạo lại draft CapCut", 100)
+        return {"success": True, "job_id": job_id, "draft_path": str(draft)}
+    except Exception as exc:
+        db = await get_db()
+        await db.execute("UPDATE production_jobs SET capcut_error=? WHERE id=?", (str(exc)[:2000], job_id))
+        await db.commit()
+        await update_production_progress(job_id, "CAPCUT_EXPORT", "FAILED",
+                                         f"Tạo lại draft CapCut thất bại: {exc}", 100,
+                                         error=str(exc))
+        raise HTTPException(502, f"Tạo lại draft CapCut thất bại: {exc}") from exc
+    finally:
+        _capcut_regenerating.discard(job_id)
 
 
 @router.patch("/production-jobs/{job_id}/schedule")

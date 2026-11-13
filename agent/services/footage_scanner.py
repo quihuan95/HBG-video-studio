@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 
 from agent.db import crud
+from agent import config
 
 VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v"}
 
@@ -73,9 +74,21 @@ def drive_folder_id(location: str) -> str:
     raise ValueError("Google Drive location must be a folder URL or folder ID")
 
 
+async def _reconcile_drive_assets(source: dict, current_ids: set[str]) -> None:
+    """Make the latest Drive listing authoritative for one configured source."""
+    for cached in await crud.list_footage_assets(source["profile_id"]):
+        if cached["source_id"] == source["id"] and cached.get("external_id") not in current_ids:
+            await crud.update_footage_asset(
+                cached["id"], status="FAILED", error_message="Missing from Google Drive")
+
+
 async def scan_google_drive(source: dict) -> list[dict]:
     from agent.services.google_oauth import get_valid_access_token
-    access_token = await get_valid_access_token()
+    try:
+        access_token = await asyncio.wait_for(
+            get_valid_access_token(), timeout=config.DRIVE_FOOTAGE_TIMEOUT_S)
+    except asyncio.TimeoutError as exc:
+        raise TimeoutError("Google Drive OAuth timed out") from exc
 
     def _list_files():
         from google.oauth2.credentials import Credentials
@@ -95,14 +108,25 @@ async def scan_google_drive(source: dict) -> list[dict]:
             if not token:
                 return result
 
-    files = await asyncio.to_thread(_list_files)
+    try:
+        files = await asyncio.wait_for(
+            asyncio.to_thread(_list_files), timeout=config.DRIVE_FOOTAGE_TIMEOUT_S)
+    except asyncio.TimeoutError as exc:
+        raise TimeoutError("Google Drive file listing timed out") from exc
     assets = []
     for item in files:
         uri = f"gdrive://{item['id']}"
-        assets.append(await crud.upsert_footage_asset(
+        asset = await crud.upsert_footage_asset(
             source["profile_id"], source["id"], item["name"], uri,
             external_id=item["id"], mime_type=item.get("mimeType"),
-            size_bytes=int(item["size"]) if item.get("size") else None))
+            size_bytes=int(item["size"]) if item.get("size") else None)
+        if asset.get("status") == "FAILED" and asset.get("error_message") == "Missing from Google Drive":
+            asset = await crud.update_footage_asset(asset["id"], status="DISCOVERED", error_message=None)
+        assets.append(asset)
+
+    # Drive is authoritative. Do not leave deleted files searchable from the
+    # SQLite catalog, but preserve their rows for audit/history references.
+    await _reconcile_drive_assets(source, {item["id"] for item in files})
     return assets
 
 

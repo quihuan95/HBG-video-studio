@@ -14,6 +14,7 @@ STAGES = [
     ("BRANDING", "Chèn nhạc và logo"),
     ("SUBTITLES", "Tạo và chèn phụ đề"),
     ("RENDER", "Render video thành phẩm"),
+    ("CAPCUT_EXPORT", "Tạo draft CapCut chỉnh sửa"),
     ("DRIVE_EXPORT", "Upload Google Drive OUTPUT"),
 ]
 

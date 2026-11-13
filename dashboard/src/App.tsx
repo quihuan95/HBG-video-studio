@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter, HashRouter, NavLink, Routes, Route, useLocation } from 'react-router-dom'
-import { Files, ScrollText, BookOpen, SlidersHorizontal, Globe, CalendarDays, Layers, CirclePlus, Video } from 'lucide-react'
+import { Files, ScrollText, BookOpen, SlidersHorizontal, Globe, CalendarDays, Layers, CirclePlus, Video, Search } from 'lucide-react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { WebSocketProvider } from './api/WebSocketContext'
 import { useWebSocketContext } from './api/useWebSocketContext'
@@ -15,12 +15,16 @@ import SettingsPage from './pages/SettingsPage'
 import ContentCalendarPage from './pages/ContentCalendarPage'
 import ContentProfilesPage from './pages/ContentProfilesPage'
 import PostManagementPage from './pages/PostManagementPage'
+import FootageSearchPage from './pages/FootageSearchPage'
+import ReferenceAnalysisPage from './pages/ReferenceAnalysisPage'
 
 const NAV: { to: string; icon: typeof Files; labelKey?: TranslationKey; label?: string; exact: boolean }[] = [
   { to: '/', icon: CirclePlus, label: 'Tạo video', exact: true },
   { to: '/produced-videos', icon: Video, label: 'Video đã tạo', exact: false },
   { to: '/content-profiles', icon: Layers, label: 'Production Profiles', exact: false },
   { to: '/calendar', icon: CalendarDays, label: 'Lịch sản xuất', exact: false },
+  { to: '/footage-search', icon: Search, label: 'AI Footage Search', exact: false },
+  { to: '/reference-analysis', icon: Video, label: 'Phân tích video tham khảo', exact: false },
   { to: '/logs', icon: ScrollText, labelKey: 'nav.logs', exact: false },
   { to: '/guide', icon: BookOpen, labelKey: 'nav.guide', exact: false },
   { to: '/settings', icon: SlidersHorizontal, labelKey: 'nav.settings', exact: false },
@@ -43,6 +47,8 @@ function useBreadcrumbs() {
   else if (loc.pathname.startsWith('/produced-videos')) crumbs.push('Quản lý video', 'Video đã tạo')
   else if (loc.pathname.startsWith('/content-profiles')) crumbs.push('Production Profiles')
   else if (loc.pathname.startsWith('/calendar')) crumbs.push('Lịch sản xuất')
+  else if (loc.pathname.startsWith('/footage-search')) crumbs.push('AI Footage Search')
+  else if (loc.pathname.startsWith('/reference-analysis')) crumbs.push('Phân tích video tham khảo')
   else if (loc.pathname.startsWith('/logs')) crumbs.push(t('app.breadcrumb.logs'))
   else if (loc.pathname.startsWith('/guide')) crumbs.push(t('app.breadcrumb.guide'))
   else if (loc.pathname.startsWith('/settings')) crumbs.push(t('app.breadcrumb.settings'))
@@ -190,6 +196,8 @@ function Layout() {
             <Route path="/produced-videos" element={<PostManagementPage view="created" />} />
             <Route path="/content-profiles" element={<ContentProfilesPage />} />
             <Route path="/calendar" element={<ContentCalendarPage />} />
+            <Route path="/footage-search" element={<FootageSearchPage />} />
+            <Route path="/reference-analysis" element={<ReferenceAnalysisPage />} />
             <Route path="/logs" element={<LogsPage />} />
             <Route path="/guide" element={<GuidePage />} />
             <Route path="/settings" element={<SettingsPage />} />

@@ -64,14 +64,14 @@ liên kết của Rule, Video Topic, footage và Production Job qua `profile_id`
 
 ### 3.1 Các file trong folder Rule
 
-Hệ thống đọc tối đa bốn file theo đúng tên:
+Hệ thống đọc hai file Rule bắt buộc và một file cấu hình tùy chọn:
 
-- `CONTENT_RULE.md`: mục tiêu, đối tượng, giọng điệu và nguyên tắc kịch bản.
 - `BRAND_FACTS.md`: dữ kiện thương hiệu được phép sử dụng.
-- `VIDEO_RULE.md`: quy tắc dựng, footage, voice, subtitle, logo, nhạc và export.
-- `PRODUCTION_CONFIG.json`: cấu hình máy đọc được; file tùy chọn.
-
-Nội dung ba file Markdown được ghép theo thứ tự trên, phân cách bằng `---`.
+- `VIDEO_RULE.md`: toàn bộ quy tắc content và sản xuất video, gồm kịch bản,
+  ngôn ngữ, footage, voice, timeline, subtitle, intro/outro, chuyển cảnh,
+  logo, nhạc, review và export.
+Nội dung hai file Markdown được ghép theo thứ tự trên, phân cách bằng `---`.
+`CONTENT_RULE.md` và `PRODUCTION_CONFIG.json` là định dạng cũ và không còn được đồng bộ.
 
 ### 3.2 Version và snapshot
 
@@ -112,23 +112,23 @@ profile_id + spreadsheet_id + sheet_id
 | Dòng 3 | Header của bảng scene |
 | Dòng 4 trở đi | Mỗi dòng là một scene/shot theo thứ tự timeline |
 
-Các cột bắt buộc ở dòng 3:
+Các cột của bảng scene (chỉ `THỜI LƯỢNG` là bắt buộc):
 
 | Cột | Header | Ý nghĩa |
 |---|---|---|
-| A | `Phần` | Tên phân đoạn: Hook, nội dung, Compare, Montage, End... |
-| B | `Shot` | Mã shot; chấp nhận `OF`, `01`, `02`, `EF`... |
-| C | `Timecode` | Khoảng thời gian như `00:03–00:09` |
-| D | `Hình ảnh đề xuất` | Mô tả footage cần xuất hiện |
-| E | `Text on screen` | Chữ hiển thị trên video |
-| F | `Voice-over (VI) – lời đọc tiếng Việt` | Nội dung dùng để tạo voice |
-| G | `Cách dựng` | Nhịp cắt, transition, bố cục và chỉ dẫn dựng |
-| H | `Tư liệu tham khảo` | Keyword hoặc link dùng để match footage |
-| I | `Âm thanh` | Chỉ dẫn nhạc, beat, ambience và sound effect |
-| J | `Ghi chú` | Logo, hotline và yêu cầu bổ sung |
+| A | `THỜI LƯỢNG` | Khoảng thời gian như `0–6s`, `6–16s` hoặc `00:03–00:09` |
+| B | `VOICE` | Lời đọc dùng để tạo voice-over và phụ đề |
+| C | `TEXT TRÊN VIDEO` | Chữ hiển thị trên video; có thể xuống dòng trong ô |
+| D | `HÌNH ẢNH / GỢI Ý DỰNG` | Hình ảnh cần có và gợi ý dựng; dùng để tìm footage |
 
-Header được normalize khoảng trắng, chữ hoa/thường và một số tên viết tắt,
-nhưng không suy đoán khi thiếu một cột bắt buộc.
+Mã shot được tự đánh `01`, `02`... theo thứ tự dòng. Khi tìm footage, OpenAI
+chuyển `VOICE` + `HÌNH ẢNH / GỢI Ý DỰNG` thành truy vấn tiếng Anh chỉ chứa chủ
+thể quay được (bỏ chỉ dẫn dựng như motion, chia ô, CTA, end-card).
+
+Header được normalize khoảng trắng, chữ hoa/thường và dấu. Các header cũ
+(`Phần`, `Shot`, `Timecode`, `Hình ảnh đề xuất`, `Text on screen`,
+`Voice-over`, `Cách dựng`, `Tư liệu tham khảo`, `Âm thanh`, `Ghi chú`) vẫn
+được đọc để tab đã đồng bộ không bị lỗi.
 
 ### 4.2 Chuẩn hóa một tab thành Video Topic
 
@@ -167,7 +167,8 @@ audio_instruction
 notes
 ```
 
-Timecode chấp nhận dấu `-`, `–` hoặc `—`. Các khoảng phải hợp lệ, không âm và
+Thời lượng chấp nhận dấu `-`, `–` hoặc `—`, mỗi đầu là số giây (`6`, `6s`,
+`6,5 giây`) hoặc `mm:ss`/`hh:mm:ss`. Các khoảng phải hợp lệ, không âm và
 không chồng lấn sai thứ tự. Dòng hoàn toàn trống được bỏ qua.
 
 ### 4.3 Quy tắc đồng bộ

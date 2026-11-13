@@ -164,6 +164,60 @@ OUTPUT_DIR = BASE_DIR / "output"
 SHARED_OUTPUT_DIR = OUTPUT_DIR / "_shared"
 TTS_TEMPLATES_DIR = SHARED_OUTPUT_DIR / "tts_templates"
 MUSIC_OUTPUT_DIR = SHARED_OUTPUT_DIR / "music"
+CAPCUT_EXPORT_ENABLED = os.environ.get("CAPCUT_EXPORT_ENABLED", "1") == "1"
+CAPCUT_DRAFT_ROOT = Path(os.environ.get(
+    "CAPCUT_DRAFT_ROOT",
+    str(Path(os.environ.get("LOCALAPPDATA", "")) / "CapCut" / "User Data" / "Projects" / "com.lveditor.draft"),
+))
+CAPCUT_TEXT_FONT_NAME = os.environ.get("CAPCUT_TEXT_FONT_NAME", "Montserrat")
+CAPCUT_TEXT_FONT_PATH = os.environ.get("CAPCUT_TEXT_FONT_PATH", r"C:\Windows\Fonts\Montserrat-Regular.ttf")
+CAPCUT_TEXT_FONT_SIZE = float(os.environ.get("CAPCUT_TEXT_FONT_SIZE", "7"))
+CAPCUT_TEXT_X = float(os.environ.get("CAPCUT_TEXT_X", "0"))
+# CapCut pixel offset, normalized against the full canvas height at export.
+CAPCUT_TEXT_Y = float(os.environ.get("CAPCUT_TEXT_Y", "-975"))
+HBG_HOTLINE = os.environ.get("HBG_HOTLINE", "(+84) 939.311.911 - (+84) 913.311.911")
+HBG_TEXT_FONT_PATH = os.environ.get("HBG_TEXT_FONT_PATH", r"C:\Windows\Fonts\arialbd.ttf")
+HBG_OUTRO_PATH = os.environ.get("HBG_OUTRO_PATH", "")
+HBG_VIDEO_BITRATE = os.environ.get("HBG_VIDEO_BITRATE", "18M")
+HBG_VIDEO_MAXRATE = os.environ.get("HBG_VIDEO_MAXRATE", "20M")
+
+# Footage research. Downloads are limited to provider URLs returned by a
+# provider search response (Pexels with an API key, YouTube via yt-dlp).
+FOOTAGE_SEARCH_ENABLED = os.environ.get("FOOTAGE_SEARCH_ENABLED", "1") == "1"
+FOOTAGE_INTERNAL_ENABLED = os.environ.get("FOOTAGE_INTERNAL_ENABLED", "1") == "1"
+FOOTAGE_EXTERNAL_ENABLED = os.environ.get("FOOTAGE_EXTERNAL_ENABLED", "1") == "1"
+FOOTAGE_SOURCE_PRIORITY = os.environ.get("FOOTAGE_SOURCE_PRIORITY", "internal_first")
+FOOTAGE_DEFAULT_ASPECT_RATIO = os.environ.get("FOOTAGE_DEFAULT_ASPECT_RATIO", "9:16")
+FOOTAGE_SEARCH_MAX_RESULTS = int(os.environ.get("FOOTAGE_SEARCH_MAX_RESULTS", "5"))
+FOOTAGE_TEMP_DIR = Path(os.environ.get("FOOTAGE_TEMP_DIR", str(OUTPUT_DIR / "footage_research")))
+PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY", "")
+PEXELS_API_URL = os.environ.get("PEXELS_API_URL", "https://api.pexels.com/v1/videos/search")
+# YouTube B-roll via yt-dlp. Standard-license YouTube videos are not cleared for
+# reuse; set YOUTUBE_CC_ONLY=1 to download Creative Commons videos only.
+YOUTUBE_FOOTAGE_ENABLED = os.environ.get("YOUTUBE_FOOTAGE_ENABLED", "1") == "1"
+DRIVE_FOOTAGE_TIMEOUT_S = int(os.environ.get("DRIVE_FOOTAGE_TIMEOUT_S", "30"))
+YOUTUBE_CC_ONLY = os.environ.get("YOUTUBE_CC_ONLY", "0") == "1"
+YOUTUBE_MIN_DURATION_S = int(os.environ.get("YOUTUBE_MIN_DURATION_S", "10"))
+YOUTUBE_MAX_DURATION_S = int(os.environ.get("YOUTUBE_MAX_DURATION_S", "600"))
+YOUTUBE_MAX_HEIGHT = int(os.environ.get("YOUTUBE_MAX_HEIGHT", "1080"))
+YOUTUBE_MAX_FILESIZE_MB = int(os.environ.get("YOUTUBE_MAX_FILESIZE_MB", "500"))
+YOUTUBE_DOWNLOAD_TIMEOUT_S = int(os.environ.get("YOUTUBE_DOWNLOAD_TIMEOUT_S", "600"))
+# Online clips downloaded per scene and analyzed by rea-video before giving up.
+ONLINE_CLIPS_PER_SCENE = int(os.environ.get("ONLINE_CLIPS_PER_SCENE", "2"))
+
+# Reference-video reverse engineering (rea-video sidecar).
+REA_VIDEO_ENABLED = os.environ.get("REA_VIDEO_ENABLED", "1") == "1"
+REA_VIDEO_CLI = Path(os.environ.get(
+    "REA_VIDEO_CLI", str(OUTPUT_DIR / "_shared" / "rea-video-runtime" / "Scripts" / "rea-video.exe")))
+REA_VIDEO_PINNED_COMMIT = os.environ.get("REA_VIDEO_PINNED_COMMIT", "356815c0d61291811551a2b8813b2b571d9b3238")
+REA_VIDEO_VERSION = os.environ.get("REA_VIDEO_VERSION", "0.1.0")
+REA_VIDEO_TIMEOUT_S = int(os.environ.get("REA_VIDEO_TIMEOUT_S", "1800"))
+REA_VIDEO_MAX_INPUT_MB = int(os.environ.get("REA_VIDEO_MAX_INPUT_MB", "1000"))
+REA_VIDEO_MAX_DURATION_S = int(os.environ.get("REA_VIDEO_MAX_DURATION_S", "1800"))
+REA_VIDEO_WORKERS = int(os.environ.get("REA_VIDEO_WORKERS", "2"))
+REA_VIDEO_ALLOW_VLM = os.environ.get("REA_VIDEO_ALLOW_VLM", "0") == "1"
+REA_VIDEO_ENV_FILE = os.environ.get("REA_VIDEO_ENV_FILE", "")
+REA_VIDEO_OUTPUT_DIR = Path(os.environ.get("REA_VIDEO_OUTPUT_DIR", str(OUTPUT_DIR / "video_analyses")))
 
 # ─── TTS (OmniVoice) ─────────────────────────────────────────
 TTS_MODEL = os.environ.get("TTS_MODEL", "k2-fsa/OmniVoice")
@@ -177,6 +231,15 @@ OPENAI_VISION_MODEL = os.environ.get("OPENAI_VISION_MODEL", "gpt-6-luna")
 OPENAI_SCRIPT_MODEL = os.environ.get("OPENAI_SCRIPT_MODEL", "gpt-6.1-terra")
 OPENAI_TTS_MODEL = os.environ.get("OPENAI_TTS_MODEL", "gpt-4o-mini-tts")
 OPENAI_REVIEW_MODEL = os.environ.get("OPENAI_REVIEW_MODEL", OPENAI_VISION_MODEL)
+VBEE_APP_ID = os.environ.get("VBEE_APP_ID", "")
+VBEE_API_TOKEN = os.environ.get("VBEE_API_TOKEN", "")
+VBEE_TTS_URL = os.environ.get("VBEE_TTS_URL", "https://api.vbee.vn/v1/tts")
+VBEE_TIMEOUT_S = float(os.environ.get("VBEE_TIMEOUT_S", "120"))
+VBEE_SPEED = float(os.environ.get("VBEE_SPEED", "1.0"))
+VBEE_BITRATE = int(os.environ.get("VBEE_BITRATE", "128"))
+VBEE_WEBHOOK_URL = os.environ.get("VBEE_WEBHOOK_URL", f"http://{API_HOST}:{API_PORT}/api/vbee/callback")
+VBEE_POLL_INTERVAL_S = float(os.environ.get("VBEE_POLL_INTERVAL_S", "2"))
+VBEE_POLL_TIMEOUT_S = float(os.environ.get("VBEE_POLL_TIMEOUT_S", "180"))
 REVIEW_MODEL = os.environ.get("REVIEW_MODEL", "claude-haiku-4-5-20251001")
 REVIEW_FPS_LIGHT = float(os.environ.get("REVIEW_FPS_LIGHT", "4"))
 REVIEW_FPS_DEEP = float(os.environ.get("REVIEW_FPS_DEEP", "8"))

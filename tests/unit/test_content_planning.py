@@ -1,8 +1,9 @@
 import pytest
-
 from agent.db import crud
+from agent.services import content_planning
 from agent.services.content_planning import (
-    calendar_items, create_post, create_rule, latest_rule, sync_topics,
+    RULE_MARKDOWN_FILES, calendar_items, create_post, create_rule, latest_rule,
+    replace_synced_rule, sync_topics,
 )
 
 
@@ -15,6 +16,10 @@ async def profile(test_db):
     )
 
 
+def test_drive_rule_snapshot_uses_brand_and_video_rule_only():
+    assert RULE_MARKDOWN_FILES == ("BRAND_FACTS.md", "VIDEO_RULE.md")
+
+
 @pytest.mark.asyncio
 async def test_rule_versions_only_when_content_changes(profile):
     first = await create_rule(profile["id"], "Rule A")
@@ -23,6 +28,35 @@ async def test_rule_versions_only_when_content_changes(profile):
     assert first["id"] == same["id"]
     assert second["version"] == 2
     assert (await latest_rule(profile["id"]))["content_hash"] == second["content_hash"]
+
+
+@pytest.mark.asyncio
+async def test_rule_version_changes_when_legacy_publish_config_is_removed(profile):
+    first = await create_rule(profile["id"], "Same content", {"legacy": True})
+    second = await create_rule(profile["id"], "Same content", {})
+    assert second["version"] == first["version"] + 1
+    assert second["publish_config_json"] == "{}"
+
+
+@pytest.mark.asyncio
+async def test_drive_sync_replaces_all_old_rules_and_clears_stale_links(profile):
+    first = await create_rule(profile["id"], "Old rule one", {"old": 1})
+    await create_rule(profile["id"], "Old rule two", {"old": 2})
+    await sync_topics(profile, [["topic_id", "content_date", "publish_time", "topic_title"],
+                                ["T001", "2026-11-12", "19:30", "Topic"]])
+    post = await create_post(profile, "T001", None, None)
+
+    fresh = await replace_synced_rule(profile["id"], "Fresh brand\n\n---\n\nFresh video")
+
+    rules = await content_planning.list_rules(profile["id"])
+    assert [(item["id"], item["version"], item["content"]) for item in rules] == [
+        (fresh["id"], 1, "Fresh brand\n\n---\n\nFresh video")
+    ]
+    assert fresh["publish_config_json"] == "{}"
+    assert all(item["id"] != first["id"] for item in rules)
+    revision = (await content_planning._rows(
+        "SELECT rule_version_id,rule_hash FROM post_revisions WHERE post_id=?", (post["id"],)))[0]
+    assert revision == {"rule_version_id": None, "rule_hash": None}
 
 
 @pytest.mark.asyncio

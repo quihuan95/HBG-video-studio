@@ -1,0 +1,16 @@
+{
+  "schema": "rea_video.breakdown.v1",
+  "tool": {"name": "rea-video", "version": "0.1.0"},
+  "source": {"duration": 1.52, "width": 1080, "height": 1920, "aspect_ratio": "9:16"},
+  "summary": {"verdict": "code / template render 100%", "shots": 1},
+  "analysis": {"vlm": {"used": false, "requested": false, "status": "off"}},
+  "shots": [{
+    "id": "shot_001", "index": 1, "start": 0.0, "end": 1.52, "duration": 1.52,
+    "base": {"label": "code_render", "label_zh": "code / template render", "confidence": 0.701,
+             "evidence": ["Picture is almost entirely still", "Rendered texture"]},
+    "assets": {"sheet": "shots/shot_001.jpg", "first_frame": "shots/shot_001_first.jpg"},
+    "aspects": {"camera": {"measured": {"motion": "unknown"}}, "lighting": {}},
+    "overlay": {"background_changes": false, "boxes": []}, "text": {"tracks": [], "items": []},
+    "replication": {"label": "code_render", "rule": "R01-code-graphics", "note": "Rebuild in Remotion"}
+  }]
+}

@@ -232,6 +232,71 @@ CREATE INDEX IF NOT EXISTS idx_footage_asset_profile ON footage_asset(profile_id
 CREATE INDEX IF NOT EXISTS idx_footage_asset_source ON footage_asset(source_id);
 CREATE INDEX IF NOT EXISTS idx_footage_asset_status ON footage_asset(status);
 
+CREATE TABLE IF NOT EXISTS footage_research_jobs (
+    id TEXT PRIMARY KEY, profile_id TEXT REFERENCES production_profile(id) ON DELETE SET NULL,
+    script_text TEXT NOT NULL, target_duration_s REAL NOT NULL, aspect_ratio TEXT NOT NULL DEFAULT '9:16',
+    source_preference TEXT NOT NULL DEFAULT 'internal_first', status TEXT NOT NULL DEFAULT 'DRAFT',
+    provider_status_json TEXT NOT NULL DEFAULT '{}', error_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS footage_research_shots (
+    id TEXT PRIMARY KEY, job_id TEXT NOT NULL REFERENCES footage_research_jobs(id) ON DELETE CASCADE,
+    order_index INTEGER NOT NULL, script_excerpt TEXT NOT NULL, visual_description TEXT NOT NULL,
+    visual_intent TEXT, keywords_vi_json TEXT NOT NULL DEFAULT '[]', keywords_en_json TEXT NOT NULL DEFAULT '[]',
+    negative_keywords_json TEXT NOT NULL DEFAULT '[]', timeline_start_s REAL NOT NULL,
+    timeline_end_s REAL NOT NULL, requirement_type TEXT NOT NULL DEFAULT 'ILLUSTRATIVE',
+    priority INTEGER NOT NULL DEFAULT 1, notes TEXT, status TEXT NOT NULL DEFAULT 'PLANNED',
+    UNIQUE(job_id, order_index)
+);
+CREATE TABLE IF NOT EXISTS footage_research_candidates (
+    id TEXT PRIMARY KEY, shot_id TEXT NOT NULL REFERENCES footage_research_shots(id) ON DELETE CASCADE,
+    asset_id TEXT REFERENCES footage_asset(id) ON DELETE SET NULL, provider TEXT NOT NULL,
+    provider_file_id TEXT, title TEXT NOT NULL, description TEXT, source_url TEXT NOT NULL,
+    preview_url TEXT, thumbnail_url TEXT, duration_s REAL, creator TEXT,
+    source_start_s REAL, source_end_s REAL, timestamp_status TEXT NOT NULL DEFAULT 'UNVERIFIED',
+    timestamp_evidence TEXT, fit_score REAL, verification_status TEXT NOT NULL DEFAULT 'UNVERIFIED',
+    license_status TEXT NOT NULL DEFAULT 'UNKNOWN', attribution TEXT, download_allowed INTEGER NOT NULL DEFAULT 0,
+    download_url TEXT, selected INTEGER NOT NULL DEFAULT 0, editor_note TEXT,
+    metadata_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL,
+    UNIQUE(shot_id, provider, source_url)
+);
+CREATE INDEX IF NOT EXISTS idx_footage_research_jobs_status ON footage_research_jobs(status);
+CREATE INDEX IF NOT EXISTS idx_footage_research_shots_job ON footage_research_shots(job_id);
+CREATE INDEX IF NOT EXISTS idx_footage_research_candidates_shot ON footage_research_candidates(shot_id);
+CREATE INDEX IF NOT EXISTS idx_footage_research_candidates_asset ON footage_research_candidates(asset_id);
+
+CREATE TABLE IF NOT EXISTS video_analyses (
+    id TEXT PRIMARY KEY, source_asset_id TEXT NOT NULL REFERENCES footage_asset(id) ON DELETE RESTRICT,
+    profile_id TEXT REFERENCES production_profile(id) ON DELETE SET NULL, title TEXT NOT NULL,
+    purpose TEXT NOT NULL DEFAULT 'complete', language TEXT NOT NULL DEFAULT 'vi',
+    use_vlm INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'QUEUED', progress INTEGER NOT NULL DEFAULT 0,
+    source_sha256 TEXT, cache_key TEXT, upstream_commit TEXT NOT NULL, tool_version TEXT NOT NULL,
+    analysis_config_json TEXT NOT NULL DEFAULT '{}', summary_json TEXT NOT NULL DEFAULT '{}',
+    artifact_dir TEXT, breakdown_path TEXT, report_html_path TEXT, report_md_path TEXT,
+    storyboard_path TEXT, error_code TEXT, error_message TEXT, started_at TEXT, completed_at TEXT,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS reference_video_shots (
+    id TEXT PRIMARY KEY, analysis_id TEXT NOT NULL REFERENCES video_analyses(id) ON DELETE CASCADE,
+    order_index INTEGER NOT NULL, reference_start_s REAL NOT NULL, reference_end_s REAL NOT NULL,
+    visual_description TEXT, production_method TEXT NOT NULL DEFAULT 'unknown', confidence REAL,
+    evidence_json TEXT NOT NULL DEFAULT '[]', camera_json TEXT NOT NULL DEFAULT '{}',
+    lighting_json TEXT NOT NULL DEFAULT '{}', overlays_json TEXT NOT NULL DEFAULT '{}',
+    audio_notes_json TEXT NOT NULL DEFAULT '{}', thumbnail_path TEXT,
+    reviewer_status TEXT NOT NULL DEFAULT 'NEEDS_REVIEW', reviewer_notes TEXT,
+    manual_method TEXT, manual_start_s REAL, manual_end_s REAL, raw_json TEXT NOT NULL DEFAULT '{}',
+    UNIQUE(analysis_id, order_index)
+);
+CREATE TABLE IF NOT EXISTS reference_shot_search_links (
+    id TEXT PRIMARY KEY, reference_shot_id TEXT NOT NULL REFERENCES reference_video_shots(id) ON DELETE CASCADE,
+    footage_research_job_id TEXT NOT NULL REFERENCES footage_research_jobs(id) ON DELETE CASCADE,
+    selected_candidate_id TEXT REFERENCES footage_research_candidates(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL, UNIQUE(reference_shot_id, footage_research_job_id)
+);
+CREATE INDEX IF NOT EXISTS idx_video_analyses_status ON video_analyses(status);
+CREATE INDEX IF NOT EXISTS idx_video_analyses_asset ON video_analyses(source_asset_id);
+CREATE INDEX IF NOT EXISTS idx_reference_video_shots_analysis ON reference_video_shots(analysis_id);
+
 CREATE TABLE IF NOT EXISTS rule_versions (
     id TEXT PRIMARY KEY, profile_id TEXT NOT NULL REFERENCES production_profile(id) ON DELETE CASCADE,
     version INTEGER NOT NULL, content TEXT NOT NULL, content_hash TEXT NOT NULL,
@@ -279,6 +344,7 @@ CREATE TABLE IF NOT EXISTS video_topics (
     footage_status TEXT NOT NULL DEFAULT 'PENDING',
     footage_error TEXT,
     footage_result_json TEXT NOT NULL DEFAULT '{}',
+    reference_analysis_id TEXT REFERENCES video_analyses(id) ON DELETE SET NULL,
     title TEXT NOT NULL,
     brief TEXT NOT NULL DEFAULT '',
     orientation TEXT NOT NULL DEFAULT 'VERTICAL',
@@ -319,9 +385,12 @@ CREATE TABLE IF NOT EXISTS production_jobs (
     scheduled_time TEXT,
     status TEXT NOT NULL DEFAULT 'DRAFT',
     creation_source TEXT NOT NULL DEFAULT 'manual',
+    footage_mode TEXT NOT NULL DEFAULT 'HYBRID',
     current_revision_id TEXT,
     output_drive_file_id TEXT,
     output_url TEXT,
+    capcut_draft_path TEXT,
+    capcut_error TEXT,
     error_stage TEXT,
     error_message TEXT,
     created_at TEXT NOT NULL,
@@ -629,10 +698,20 @@ CREATE INDEX IF NOT EXISTS idx_request_scene ON request(scene_id);
             "footage_folder_url": "TEXT", "footage_folder_id": "TEXT",
             "footage_status": "TEXT NOT NULL DEFAULT 'PENDING'", "footage_error": "TEXT",
             "footage_result_json": "TEXT NOT NULL DEFAULT '{}'",
+            "reference_analysis_id": "TEXT REFERENCES video_analyses(id) ON DELETE SET NULL",
         }
         for name, definition in video_topic_additions.items():
             if name not in video_topic_columns:
                 await db.execute(f"ALTER TABLE video_topics ADD COLUMN {name} {definition}")
+        cursor = await db.execute("PRAGMA table_info(production_jobs)")
+        production_job_columns = {row[1] for row in await cursor.fetchall()}
+        production_job_additions = {
+            "capcut_draft_path": "TEXT", "capcut_error": "TEXT",
+            "footage_mode": "TEXT NOT NULL DEFAULT 'HYBRID'",
+        }
+        for name, definition in production_job_additions.items():
+            if name not in production_job_columns:
+                await db.execute(f"ALTER TABLE production_jobs ADD COLUMN {name} {definition}")
         cursor = await db.execute("PRAGMA table_info(footage_source)")
         footage_source_columns = {row[1] for row in await cursor.fetchall()}
         if "video_topic_id" not in footage_source_columns:

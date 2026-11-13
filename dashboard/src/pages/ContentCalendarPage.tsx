@@ -17,6 +17,7 @@ interface CalendarItem {
   color: string
   footage_status?: string | null
 }
+type FootageMode = 'DRIVE_ONLY' | 'INTERNET_ONLY' | 'HYBRID'
 
 const WEEKDAYS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
 const pad = (value: number) => String(value).padStart(2, '0')
@@ -71,10 +72,10 @@ export default function ContentCalendarPage() {
     finally { setBusy(false) }
   }
 
-  async function createFromTopic(item: CalendarItem) {
+  async function createFromTopic(item: CalendarItem, footageMode: FootageMode) {
     setBusy(true)
     try {
-      await fetchAPI('/api/production-jobs', { method: 'POST', body: JSON.stringify({ profile_id: item.profile_id, video_topic_id: item.topic_id, production_date: item.date, scheduled_time: item.time || '09:00' }) })
+      await fetchAPI('/api/production-jobs', { method: 'POST', body: JSON.stringify({ profile_id: item.profile_id, video_topic_id: item.topic_id, production_date: item.date, scheduled_time: item.time || '09:00', footage_mode: footageMode }) })
       await load()
     } catch (err) { setError(err instanceof Error ? err.message : String(err)) }
     finally { setBusy(false) }
@@ -118,11 +119,12 @@ export default function ContentCalendarPage() {
   </div>
 }
 
-function CalendarRow({ item, busy, onCreate }: { item: CalendarItem; busy: boolean; onCreate: (item: CalendarItem) => void }) {
-  const canCreate = item.kind === 'topic' && item.footage_status === 'READY'
+function CalendarRow({ item, busy, onCreate }: { item: CalendarItem; busy: boolean; onCreate: (item: CalendarItem, mode: FootageMode) => void }) {
+  const [footageMode, setFootageMode] = useState<FootageMode>('HYBRID')
+  const canCreate = item.kind === 'topic'
   return <div className="flex items-center gap-3 rounded px-3 py-2 border" style={{ borderColor: 'var(--border)' }}>
     <span className="w-2 h-2 rounded-full" style={{ background: item.color }}/><span className="text-[11px] w-12">{item.time || '--:--'}</span>
     <div className="flex flex-col min-w-0"><span className="text-xs truncate">{item.topic_title || 'Video không gắn tab nguồn'}</span><span className="text-[9px]" style={{ color: 'var(--muted)' }}>{item.profile_name} · {item.kind === 'topic' ? 'CHƯA TẠO' : item.status}</span></div>
-    {item.kind === 'topic' && <Button className="ml-auto" size="xs" disabled={busy || !canCreate} title={canCreate ? 'Tạo video' : 'Phải phân loại footage trước'} onClick={() => onCreate(item)}>{canCreate ? 'Tạo video' : 'Chờ footage'}</Button>}
+    {item.kind === 'topic' && <><select className="ml-auto rounded border bg-transparent px-2 py-1 text-[10px]" style={{ borderColor: 'var(--border)' }} value={footageMode} onChange={event => setFootageMode(event.target.value as FootageMode)} disabled={busy}><option value="DRIVE_ONLY">100% Drive</option><option value="INTERNET_ONLY">100% Internet</option><option value="HYBRID">Drive + Internet</option></select><Button size="xs" disabled={busy || !canCreate} title="Tạo voice trước, sau đó tìm footage theo nguồn đã chọn" onClick={() => onCreate(item, footageMode)}>Tạo video</Button></>}
   </div>
 }

@@ -13,6 +13,8 @@ import httpx
 from agent.db.schema import get_db
 from agent.services.google_oauth import get_valid_access_token
 
+RULE_MARKDOWN_FILES = ("BRAND_FACTS.md", "VIDEO_RULE.md")
+
 
 def _now() -> str: return datetime.now(timezone.utc).isoformat()
 def _id() -> str: return str(uuid.uuid4())
@@ -35,16 +37,52 @@ async def create_rule(profile_id: str, content: str, publish_config: dict | None
     content = content.strip()
     if not content: raise ValueError("Rule content is required")
     current = await latest_rule(profile_id); digest = _hash(content)
-    if current and current["content_hash"] == digest: return current
+    publish_json = json.dumps(publish_config or {}, ensure_ascii=False, sort_keys=True)
+    current_publish = "{}"
+    if current:
+        try: current_publish = json.dumps(json.loads(current.get("publish_config_json") or "{}"), ensure_ascii=False, sort_keys=True)
+        except ValueError: current_publish = current.get("publish_config_json") or "{}"
+    if current and current["content_hash"] == digest and current_publish == publish_json: return current
     db = await get_db(); now = _now(); rid = _id(); version = (current["version"] if current else 0) + 1
     await db.execute("INSERT INTO rule_versions VALUES(?,?,?,?,?,?,?,?)",
-                     (rid, profile_id, version, content, digest, json.dumps(publish_config or {}), "published", now))
+                     (rid, profile_id, version, content, digest, publish_json, "published", now))
     await db.commit()
     return (await _rows("SELECT * FROM rule_versions WHERE id=?", (rid,)))[0]
 
 
 async def list_rules(profile_id: str) -> list[dict]:
     return await _rows("SELECT * FROM rule_versions WHERE profile_id=? ORDER BY version DESC", (profile_id,))
+
+
+async def replace_synced_rule(profile_id: str, content: str) -> dict:
+    """Delete every old Rule artifact for a Profile and install one fresh Drive snapshot."""
+    content = content.strip()
+    if not content:
+        raise ValueError("Rule content is required")
+    db = await get_db(); now = _now(); rid = _id(); digest = _hash(content)
+    try:
+        # Old revisions must not keep stale rule IDs or hashes after a destructive
+        # Profile Rule refresh. Existing production jobs must be regenerated.
+        await db.execute(
+            """UPDATE production_revisions SET rule_version_id=NULL,rule_hash=NULL
+               WHERE rule_version_id IN (SELECT id FROM rule_versions WHERE profile_id=?)""",
+            (profile_id,),
+        )
+        await db.execute(
+            """UPDATE post_revisions SET rule_version_id=NULL,rule_hash=NULL
+               WHERE rule_version_id IN (SELECT id FROM rule_versions WHERE profile_id=?)""",
+            (profile_id,),
+        )
+        await db.execute("DELETE FROM rule_versions WHERE profile_id=?", (profile_id,))
+        await db.execute(
+            "INSERT INTO rule_versions VALUES(?,?,?,?,?,?,?,?)",
+            (rid, profile_id, 1, content, digest, "{}", "published", now),
+        )
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+    return (await _rows("SELECT * FROM rule_versions WHERE id=?", (rid,)))[0]
 
 
 def _drive_id(value: str | None) -> str | None:
@@ -65,16 +103,11 @@ async def sync_rules(profile: dict) -> dict | None:
             params={"q": query, "fields": "files(id,name,mimeType)"})
         listing.raise_for_status(); files = {f["name"]: f for f in listing.json().get("files", [])}
         parts = []
-        for name in ("CONTENT_RULE.md", "BRAND_FACTS.md", "VIDEO_RULE.md"):
+        for name in RULE_MARKDOWN_FILES:
             if name in files:
                 response = await client.get(f"https://www.googleapis.com/drive/v3/files/{files[name]['id']}?alt=media", headers=headers)
                 response.raise_for_status(); parts.append(response.text)
-        publish = {}
-        if "PRODUCTION_CONFIG.json" in files:
-            response = await client.get(f"https://www.googleapis.com/drive/v3/files/{files['PRODUCTION_CONFIG.json']['id']}?alt=media", headers=headers)
-            try: publish = response.json() if response.is_success else {}
-            except ValueError: publish = {}
-    return await create_rule(profile["id"], "\n\n---\n\n".join(parts), publish) if parts else None
+    return await replace_synced_rule(profile["id"], "\n\n---\n\n".join(parts)) if parts else None
 
 
 def _date(value: str) -> str:

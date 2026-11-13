@@ -82,6 +82,10 @@ OPENAI_API_KEY=sk-your-key-here
 OPENAI_VISION_MODEL=gpt-6-luna
 OPENAI_SCRIPT_MODEL=gpt-6.1-terra
 OPENAI_TTS_MODEL=gpt-4o-mini-tts
+VBEE_APP_ID=
+VBEE_API_TOKEN=
+VBEE_TTS_URL=https://api.vbee.vn/v1/tts
+VBEE_WEBHOOK_URL=http://127.0.0.1:8100/api/vbee/callback
 OPENAI_REVIEW_MODEL=gpt-6-luna
 
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
@@ -114,6 +118,9 @@ secret cho giao diện. Sau khi lưu, hãy khởi động lại ứng dụng.
 | `OPENAI_VISION_MODEL` | `gpt-6-luna` | Model tiết kiệm để phân loại frame đại diện của footage |
 | `OPENAI_SCRIPT_MODEL` | `gpt-6.1-terra` | Model chia kịch bản, ghép cảnh và lập timeline |
 | `OPENAI_TTS_MODEL` | `gpt-4o-mini-tts` | Model tạo voice cho narration |
+| `VBEE_APP_ID` | trống | App ID tạo tại Vbee Studio |
+| `VBEE_API_TOKEN` | trống | Bearer token của ứng dụng Vbee |
+| `VBEE_TTS_URL` | `https://api.vbee.vn/v1/tts` | Endpoint Vbee Realtime TTS |
 | `OPENAI_REVIEW_MODEL` | `OPENAI_VISION_MODEL` | Model OpenAI xem contact sheet và chấm video |
 | `GOOGLE_CLIENT_ID` | trống | OAuth client ID từ Google Cloud Console |
 | `GOOGLE_CLIENT_SECRET` | trống | OAuth client secret; chỉ backend được đọc |
@@ -207,30 +214,20 @@ Truy cập `http://127.0.0.1:5173`.
 ## Production Profile, Video Rule và lịch sản xuất
 
 Vào **Production Profiles** để tạo profile, nhập Google Spreadsheet
-ID/URL và Google Drive folder chứa Rule. Folder Rule có thể chứa
-`CONTENT_RULE.md`, `BRAND_FACTS.md`, `VIDEO_RULE.md` và
-`PRODUCTION_CONFIG.json`.
+ID/URL và Google Drive folder chứa Rule. Folder Rule dùng
+`BRAND_FACTS.md` và `VIDEO_RULE.md`.
+Toàn bộ quy tắc content và sản xuất video nằm trong `VIDEO_RULE.md`;
+`CONTENT_RULE.md` và `PRODUCTION_CONFIG.json` không còn được đồng bộ.
 
 Mỗi tab trong Spreadsheet là một video: dòng 1 là tiêu đề, dòng 2 là brief,
 dòng 3 là Google Drive folder footage riêng của video, dòng 4 là header và dòng
 5 trở đi là các scene/shot. Định dạng cũ không có dòng footage vẫn được hỗ trợ.
-Nút **Phân loại footage** dùng OpenAI Vision phân tích clip rồi chuyển chúng vào
-`_AI_CLASSIFIED/<category>` bên trong folder footage tương ứng. Tiến độ, clip
-đang xử lý, category và lỗi được hiển thị theo thời gian thực ngay dưới từng
-video; mỗi video chạy độc lập và không khóa thao tác của các video khác.
-Kết quả được lưu lâu dài trong database và trong `_AI_CLASSIFIED` dưới dạng
-`FOOTAGE_CATALOG.json` (dữ liệu máy đọc) cùng `FOOTAGE_REPORT.md` (báo cáo cho
-người vận hành). Giao diện hiện link mở thẳng folder kết quả sau khi hoàn tất.
-Production Job chỉ được tạo khi video có folder footage và quá trình phân loại
-đạt trạng thái `READY`; `PENDING`, `ANALYZING`, `PARTIAL` và `FAILED` đều bị
-chặn ở cả giao diện lẫn API.
-Sau khi đạt `READY`, nút **Phân tích lại** cho phép chủ động chạy lại OpenAI và
-cập nhật toàn bộ kết quả. Luồng **Tạo video** tái sử dụng kết quả `READY` hiện
-có, không phân tích footage lần nữa.
-Tiến độ và tối đa 100 dòng log gần nhất được lưu trong SQLite sau từng bước.
-Nếu ứng dụng tắt giữa chừng, lần khởi động sau tự khôi phục Job `ANALYZING`;
-các clip đã `READY` được giữ lại và luồng thường chỉ xử lý phần còn thiếu.
-Production Job cũng có tracker SQLite riêng cho 8 bước: kịch bản, voice, chọn
+Bảng scene gồm 4 cột: `THỜI LƯỢNG` (vd. `0–6s`), `VOICE`, `TEXT TRÊN VIDEO`,
+`HÌNH ẢNH / GỢI Ý DỰNG`.
+Footage của video được chọn **100% từ Internet** theo kịch bản; không cần folder
+footage hay phân loại footage nội bộ. Nút **Tạo video** chỉ yêu cầu một nguồn
+Internet đang hoạt động (YouTube qua yt-dlp, hoặc Pexels khi có `PEXELS_API_KEY`).
+Production Job có tracker SQLite riêng cho 8 bước: kịch bản, voice, chọn
 footage, timeline, branding, phụ đề, render và Drive export. Màn hình **Đang
 làm** hiển thị phần trăm, trạng thái từng bước và log, tự cập nhật mỗi 3 giây.
 Trang **Lịch sản xuất** hiển thị dạng tháng. Mỗi video/job là một chấm mang màu
@@ -246,9 +243,13 @@ Sidebar **Quản lý video** được tách thành hai menu con: **Tạo video**
 hàng đợi video từ Sheet, còn **Video đã tạo** theo dõi các Job đang làm, hoàn
 thành và đã hủy. Không dùng nhiều tab trong cùng một trang.
 
-Production worker chạy nền ngay sau khi tạo Job: OpenAI Speech tạo voice theo
-scene; kết quả Vision được dùng để chọn footage; FFmpeg tải/cắt/scale, ghép
+Production worker chạy nền ngay sau khi tạo Job: tạo voice theo scene; OpenAI
+chuyển `VOICE` + `HÌNH ẢNH / GỢI Ý DỰNG` của từng cảnh thành truy vấn tiếng Anh;
+tìm clip trên YouTube/Pexels, tải về và cho rea-video tách shot, loại shot có
+chữ/quay màn hình/render, chọn đoạn IN/OUT tốt nhất; FFmpeg cắt/scale, ghép
 timeline, voice, nhạc, logo và phụ đề; video cuối được duyệt và upload Drive.
+Cảnh không có footage Internet dùng được sẽ làm Job thất bại ở bước FOOTAGE
+với thông báo rõ cảnh nào.
 Job `DRAFT/PROCESSING` được tự tiếp tục sau khi mở lại ứng dụng.
 
 Nhấn **Đồng bộ Rule + Sheet**, sau đó mở **Lịch sản xuất**.
@@ -313,6 +314,38 @@ POST   /api/footage/{asset_id}/analyze
 video trong Responses API, vì vậy hệ thống dùng FFmpeg lấy tối đa 10 frame đại
 diện rồi lưu kết quả phân loại có cấu trúc vào SQLite.
 
+Màn hình **AI Footage Search** nhận kịch bản/voice-over, chia thành shot rồi tìm
+đồng thời trong thư viện local/Google Drive và stock online. Search nội bộ luôn
+hoạt động; Pexels chỉ chuyển sang `READY` khi cấu hình `PEXELS_API_KEY`, nếu
+không UI hiển thị `NOT_CONFIGURED`. Timestamp không có bằng chứng luôn được giữ
+ở `UNVERIFIED`. Chỉ source nội bộ hoặc stock có quyền tải mới được đưa vào gói
+ZIP cho CapCut; các nguồn còn lại chỉ xuất URL trong shotlist CSV/JSON.
+
+Màn hình **Phân tích video tham khảo** dùng REA Video để reverse-engineer một
+file local/Drive đã có trong thư viện. Runtime được pin tại commit
+`356815c0d61291811551a2b8813b2b571d9b3238` và cài trong virtualenv sidecar,
+không cài skill toàn cục hoặc trộn OpenCV với backend:
+
+```powershell
+./tools/install_rea_video.ps1
+```
+
+Analysis mặc định chạy offline; `REA_VIDEO_ALLOW_VLM=0`. Chỉ bật VLM sau khi
+người vận hành cho phép truyền frame/video ra provider và đã cấu hình một env
+file riêng qua `REA_VIDEO_ENV_FILE`. Báo cáo REA gốc được tải như attachment,
+không nhúng HTML vào origin đặc quyền của Electron. Shot đã duyệt có thể chuyển
+thành search brief cho **AI Footage Search**; timestamp reference và timestamp
+source thay thế được lưu tách biệt.
+
+Hai tính năng này cũng được nối trực tiếp vào production worker. Sau khi REA
+phân tích xong, chọn **Áp dụng vào luồng tạo video** và gắn analysis vào một
+Video Topic cùng profile. Ở bước `FOOTAGE`, worker tạo Footage Research Job theo
+đúng các scene/voice đã chốt, dùng shot REA làm style brief, tìm toàn bộ kho
+local/Drive chung của profile trước rồi mới bổ sung Pexels nếu đã cấu hình.
+Source online chỉ được tự dựng khi provider xác nhận quyền tải; research job,
+reference analysis và asset đã chọn đều được lưu trong `assets_json` của
+production revision để kiểm tra lại.
+
 ## API và tài liệu kỹ thuật
 
 Khi backend đang chạy:
@@ -323,7 +356,7 @@ Khi backend đang chạy:
 
 Tài liệu trong repository:
 
-- [`ARCHITECTURE.md`](ARCHITECTURE.md): kiến trúc hệ thống
+- [`.AI/project/ARCHITECTURE.md`](.AI/project/ARCHITECTURE.md): kiến trúc hệ thống
 - [`dashboard/README.md`](dashboard/README.md): hướng dẫn riêng cho Electron UI
 - [`CLAUDE.md`](CLAUDE.md): API và workflow chi tiết
 - [`skills/`](skills/): các workflow `/fk-*`

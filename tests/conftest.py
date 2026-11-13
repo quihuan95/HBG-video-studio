@@ -167,6 +167,18 @@ async def test_db(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _no_online_footage(monkeypatch):
+    """Tests must never hit YouTube/Pexels; opt in by monkeypatching the provider."""
+    monkeypatch.setattr("agent.config.YOUTUBE_FOOTAGE_ENABLED", False)
+    monkeypatch.setattr("agent.config.PEXELS_API_KEY", "")
+    monkeypatch.setattr("agent.services.footage_research._scene_search_queries", _no_queries)
+
+
+async def _no_queries(scenes):
+    return {}
+
+
+@pytest.fixture(autouse=True)
 def _generation_hold_path(tmp_path, monkeypatch):
     """Keep FlowClient's persisted generation hold out of the real agent dir."""
     path = tmp_path / "flow_generation_hold.json"
